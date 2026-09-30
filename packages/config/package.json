@@ -1,0 +1,11 @@
+{
+  "name": "@warden/config",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "tsconfig.base.json"
+  ],
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

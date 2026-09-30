@@ -1,0 +1,36 @@
+import { createHash } from 'node:crypto';
+import { chatCompletion } from './client';
+import { buildMessages, PROMPT_VERSION, type ExecutiveSummaryContext } from './prompts/executive-summary.v1';
+import { redact } from './redact';
+import { executiveSummarySchema, type ExecutiveSummary } from './schemas';
+
+export { chatCompletion, type ChatMessage } from './client';
+export { redact } from './redact';
+export type { ExecutiveSummary, ExecutiveSummaryContext };
+
+export interface GeneratedSummary {
+  summary: ExecutiveSummary;
+  modelUsed: string;
+  promptVersion: string;
+  /** Hash del contexto enviado; permite detectar reportes generados con los mismos datos. */
+  contextHash: string;
+}
+
+export async function generateExecutiveSummary(
+  ctx: ExecutiveSummaryContext,
+  opts: { apiKey: string; model: string; signal?: AbortSignal },
+): Promise<GeneratedSummary> {
+  const safeCtx = JSON.parse(redact(JSON.stringify(ctx))) as ExecutiveSummaryContext;
+  const contextHash = createHash('sha256').update(JSON.stringify(safeCtx)).digest('hex');
+
+  const res = await chatCompletion({
+    apiKey: opts.apiKey,
+    model: opts.model,
+    messages: buildMessages(safeCtx),
+    jsonMode: true,
+    signal: opts.signal,
+  });
+
+  const summary = executiveSummarySchema.parse(JSON.parse(res.content));
+  return { summary, modelUsed: res.model, promptVersion: PROMPT_VERSION, contextHash };
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@warden/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "@warden/ai": "workspace:*",
+    "@warden/collectors": "workspace:*",
+    "@warden/db": "workspace:*",
+    "@warden/scoring": "workspace:*",
+    "@warden/shared": "workspace:*",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@warden/config": "workspace:*",
+    "typescript": "^7.0.2"
+  }
+}

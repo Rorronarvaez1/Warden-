@@ -1,0 +1,27 @@
+# Entorno local del worker y SpiderFoot. Supabase se levanta aparte con `pnpm db:start`.
+#   docker compose -f infra/docker-compose.yml up --build
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    env_file: ../.env
+    environment:
+      # Desde el contenedor, Supabase local y SpiderFoot se alcanzan por estos nombres.
+      SUPABASE_URL: http://host.docker.internal:54321
+      SPIDERFOOT_URL: http://spiderfoot:5001
+    depends_on:
+      - spiderfoot
+    restart: unless-stopped
+
+  spiderfoot:
+    # Imagen construida desde el repositorio oficial (MIT). Usar solo el caso de uso "passive".
+    build: https://github.com/smicallef/spiderfoot.git#v4.0
+    ports:
+      - "5001:5001"
+    volumes:
+      - spiderfoot-data:/var/lib/spiderfoot
+    restart: unless-stopped
+
+volumes:
+  spiderfoot-data:
