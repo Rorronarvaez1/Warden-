@@ -46,10 +46,8 @@ export async function runScan(
     const target: CollectorTarget = {
       companyId: scan.company_id,
       primaryDomain: company.primary_domain,
-      assets: (assets ?? []).map((a: { asset_type: AssetType; value: string }) => ({
-        type: a.asset_type,
-        value: a.value,
-      })),
+      // asset_type es text en BD; el CHECK constraint garantiza que sea un AssetType.
+      assets: (assets ?? []).map((a) => ({ type: a.asset_type as AssetType, value: a.value })),
     };
 
     const results = await collectAll(db, scanId, target, opts.signal);
