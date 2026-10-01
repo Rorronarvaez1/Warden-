@@ -1,3 +1,4 @@
+import type { Json } from '@warden/db';
 import type { Db } from '../supabase';
 import type { SourceResult } from './collect';
 
@@ -34,29 +35,36 @@ export async function persistResults(db: Db, scan: ScanRow, results: SourceResul
   }
 
   const { data: domains } = await db.from('risk_domains').select('id, key');
-  const domainIdByKey = new Map((domains ?? []).map((d: { id: number; key: string }) => [d.key, d.id]));
+  const domainIdByKey = new Map((domains ?? []).map((d) => [d.key, d.id]));
 
   const { data: assets } = await db
     .from('assets')
     .select('id, value')
     .eq('company_id', scan.company_id);
-  const assetIdByValue = new Map((assets ?? []).map((a: { id: string; value: string }) => [a.value, a.id]));
+  const assetIdByValue = new Map((assets ?? []).map((a) => [a.value, a.id]));
 
   for (const { sourceKey, result } of results) {
     if (result.findings.length === 0) continue;
 
-    const rows = result.findings.map((f) => ({
-      company_id: scan.company_id,
-      scan_id: scan.id,
-      asset_id: f.assetValue ? (assetIdByValue.get(f.assetValue) ?? null) : null,
-      risk_domain_id: domainIdByKey.get(f.riskDomain),
-      fingerprint: f.fingerprint,
-      title: f.title,
-      severity: f.severity,
-      confidence: f.confidence,
-      observed_at: f.observedAt.toISOString(),
-      evidence: f.evidence,
-    }));
+    const rows = result.findings.map((f) => {
+      const riskDomainId = domainIdByKey.get(f.riskDomain);
+      if (riskDomainId === undefined) {
+        throw new Error(`dominio de riesgo '${f.riskDomain}' no existe en risk_domains (¿falta el seed?)`);
+      }
+      return {
+        company_id: scan.company_id,
+        scan_id: scan.id,
+        asset_id: f.assetValue ? (assetIdByValue.get(f.assetValue) ?? null) : null,
+        risk_domain_id: riskDomainId,
+        fingerprint: f.fingerprint,
+        title: f.title,
+        severity: f.severity,
+        confidence: f.confidence,
+        observed_at: f.observedAt.toISOString(),
+        // Los colectores producen evidencia serializable a JSON.
+        evidence: f.evidence as Json,
+      };
+    });
 
     const { data: saved, error } = await db
       .from('findings')
@@ -66,10 +74,10 @@ export async function persistResults(db: Db, scan: ScanRow, results: SourceResul
 
     const rawByFingerprint = new Map(result.findings.map((f) => [f.fingerprint, f.rawReference]));
     await db.from('finding_sources').upsert(
-      (saved ?? []).map((s: { id: string; fingerprint: string }) => ({
+      (saved ?? []).map((s) => ({
         finding_id: s.id,
         source_key: sourceKey,
-        raw_reference: rawByFingerprint.get(s.fingerprint) ?? null,
+        raw_reference: (rawByFingerprint.get(s.fingerprint) ?? null) as Json,
       })),
       { onConflict: 'finding_id,source_key' },
     );
