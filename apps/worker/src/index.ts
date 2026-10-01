@@ -14,12 +14,6 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-interface QueueMessage<T> {
-  msg_id: number;
-  read_ct: number;
-  message: T;
-}
-
 async function pollScanRequests(): Promise<boolean> {
   const { data, error } = await db.rpc('queue_read', {
     p_queue: QUEUES.scanRequests,
@@ -28,10 +22,12 @@ async function pollScanRequests(): Promise<boolean> {
   });
   if (error) throw error;
 
-  const messages = (data ?? []) as QueueMessage<ScanRequestMessage>[];
+  const messages = data ?? [];
   for (const msg of messages) {
+    // pgmq tipa el mensaje como Json; su forma la garantizan request_scan() y enqueue_due_scans().
+    const { scan_id } = msg.message as unknown as ScanRequestMessage;
     // Si el worker muere a mitad del escaneo, el mensaje reaparece al vencer el timeout.
-    await runScan(db, msg.message.scan_id, { attempt: msg.read_ct, signal: shutdown.signal });
+    await runScan(db, scan_id, { attempt: msg.read_ct, signal: shutdown.signal });
     await db.rpc('queue_delete', { p_queue: QUEUES.scanRequests, p_msg_id: msg.msg_id });
   }
   return messages.length > 0;
