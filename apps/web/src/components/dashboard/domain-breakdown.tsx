@@ -1,31 +1,35 @@
-export interface DomainRow {
-  name: string;
-  grade: string;
-  score: number;
-  findingsCount: number;
-}
+import type { DomainScoreRow } from '@/lib/mock-dashboard';
+import styles from './dashboard.module.css';
+import { GRADE_COLORS, GradeBadge } from './grade-badge';
 
-export function DomainBreakdown({ domains }: { domains: DomainRow[] }) {
+export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
   return (
-    <table style={{ marginTop: 24, borderCollapse: 'collapse', minWidth: 480 }}>
-      <thead>
-        <tr style={{ textAlign: 'left', color: 'var(--muted)' }}>
-          <th>Dominio</th>
-          <th>Nota</th>
-          <th>Puntaje</th>
-          <th>Hallazgos</th>
-        </tr>
-      </thead>
-      <tbody>
+    <section className={styles.card}>
+      <header className={styles.cardHeader}>
+        <div>
+          <h2 className={styles.cardTitle}>Riesgo por dominio</h2>
+          <p className={styles.cardHint}>Promedio de la cartera · peso en el KRI</p>
+        </div>
+      </header>
+
+      <ul className={styles.domainList}>
         {domains.map((d) => (
-          <tr key={d.name} style={{ borderTop: '1px solid var(--border)' }}>
-            <td>{d.name}</td>
-            <td>{d.grade}</td>
-            <td>{d.score.toFixed(1)}</td>
-            <td>{d.findingsCount}</td>
-          </tr>
+          <li key={d.key}>
+            <div className={styles.domainTop}>
+              <span>
+                {d.name} <span className={styles.domainMeta}>· {d.weight}%</span>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className={styles.domainMeta}>{d.findingsCount} hallazgos</span>
+                <GradeBadge grade={d.grade} />
+              </span>
+            </div>
+            <div className={styles.bar}>
+              <div className={styles.barFill} style={{ width: `${d.score}%`, background: GRADE_COLORS[d.grade] }} />
+            </div>
+          </li>
         ))}
-      </tbody>
-    </table>
+      </ul>
+    </section>
   );
 }

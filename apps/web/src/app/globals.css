@@ -1,9 +1,19 @@
 :root {
   --bg: #0f1115;
   --surface: #171a21;
+  --surface-2: #1e222b;
   --text: #e6e8ec;
   --muted: #8b93a1;
   --border: #262b35;
+  --accent: #8b7cf6;
+
+  /* Notas A–F, también usadas para severidad. */
+  --grade-a: #22c55e;
+  --grade-b: #84cc16;
+  --grade-c: #eab308;
+  --grade-d: #f97316;
+  --grade-e: #ef4444;
+  --grade-f: #dc2626;
 }
 
 * {
