@@ -1,54 +1,43 @@
+import { CompaniesTable } from '@/components/dashboard/companies-table';
+import styles from '@/components/dashboard/dashboard.module.css';
 import { DomainBreakdown } from '@/components/dashboard/domain-breakdown';
+import { RecentFindings } from '@/components/dashboard/recent-findings';
 import { ScoreGauge } from '@/components/dashboard/score-gauge';
-import { createClient } from '@/lib/supabase/server';
+import { StatCard } from '@/components/dashboard/stat-card';
+import { TrendChart } from '@/components/dashboard/trend-chart';
+import { companies, domainScores, recentFindings, stats, trend } from '@/lib/mock-dashboard';
 
-interface LatestScore {
-  global_score: number;
-  grade: string;
-  companies: { name: string };
-  score_domains: {
-    domain_score: number;
-    grade: string;
-    findings_count: number;
-    risk_domains: { name: string };
-  }[];
-}
-
-export default async function DashboardPage() {
-  const supabase = await createClient();
-
-  // TODO: quitar el cast cuando database.types.ts se genere con `pnpm db:types`.
-  const { data } = await supabase
-    .from('scores')
-    .select(
-      'global_score, grade, companies(name), score_domains(domain_score, grade, findings_count, risk_domains(name))',
-    )
-    .order('computed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const score = data as unknown as LatestScore | null;
-
-  if (!score) {
-    return (
-      <>
-        <h1>Dashboard</h1>
-        <p style={{ color: 'var(--muted)' }}>Aún no hay calificaciones. Lanza un escaneo desde Empresas.</p>
-      </>
-    );
-  }
-
+// TODO: reemplazar los datos de ejemplo por queries a Supabase (scores, score_domains,
+// findings) cuando haya escaneos reales. Las formas de mock-dashboard.ts ya los imitan.
+export default function DashboardPage() {
   return (
-    <>
-      <h1>{score.companies.name}</h1>
-      <ScoreGauge grade={score.grade} score={Number(score.global_score)} />
-      <DomainBreakdown
-        domains={score.score_domains.map((d) => ({
-          name: d.risk_domains.name,
-          grade: d.grade,
-          score: Number(d.domain_score),
-          findingsCount: d.findings_count,
-        }))}
-      />
-    </>
+    <div className={styles.page}>
+      <div>
+        <h1 className={styles.pageTitle}>Dashboard</h1>
+        <p className={styles.subtitle}>Resumen del riesgo de la cartera · datos de ejemplo</p>
+      </div>
+
+      <div className={styles.statsGrid}>
+        <StatCard label="Empresas" value={stats.companiesCount} hint="monitoreadas" />
+        <StatCard label="Evaluaciones" value={stats.scansLast30d} hint="últimos 30 días" />
+        <StatCard
+          label="KRI promedio"
+          value={stats.avgScore.toFixed(1)}
+          hint="de 100"
+          aside={<ScoreGauge grade={stats.avgGrade} score={stats.avgScore} />}
+        />
+        <StatCard label="Críticos abiertos" value={stats.openCriticalFindings} hint="hallazgos sin resolver" />
+      </div>
+
+      <div className={styles.rowWide}>
+        <CompaniesTable companies={companies} />
+        <DomainBreakdown domains={domainScores} />
+      </div>
+
+      <div className={styles.rowHalf}>
+        <TrendChart points={trend} />
+        <RecentFindings findings={recentFindings} />
+      </div>
+    </div>
   );
 }

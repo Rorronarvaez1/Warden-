@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/web/node_modules/next/dist/bin/next", "dev", "apps/web", "--port", "3000"],
+      "env": { "WARDEN_DEV_SKIP_AUTH": "true" },
+      "port": 3000
+    }
+  ]
+}

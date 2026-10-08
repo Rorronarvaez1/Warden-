@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 // Refresca la sesión de Supabase en cada request y manda a /login a quien no esté autenticado.
 // El control por rol (admin/analyst) lo aplica RLS en la BD.
 export async function proxy(request: NextRequest) {
+  // Solo en desarrollo: permite ver las páginas sin Supabase corriendo. Nunca aplica en producción.
+  if (process.env.NODE_ENV !== 'production' && process.env.WARDEN_DEV_SKIP_AUTH === 'true') {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

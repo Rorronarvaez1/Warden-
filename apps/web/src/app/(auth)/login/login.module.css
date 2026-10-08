@@ -1,0 +1,94 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.form {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.brand {
+  margin: 0;
+  text-align: center;
+  font-size: 26px;
+}
+
+.title {
+  margin: 4px 0 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.label {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.input {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.inputError {
+  border-color: var(--grade-f);
+}
+
+.errorText {
+  margin-top: 4px;
+  color: var(--grade-f);
+  font-size: 13px;
+}
+
+.errorBox {
+  margin-bottom: 16px;
+  padding: 10px;
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--grade-f);
+  font-size: 14px;
+}
+
+.button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
