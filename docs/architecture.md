@@ -27,3 +27,16 @@
 - El worker usa la llave secreta (service role). Esa llave nunca debe llegar a Vercel.
 - `redact()` limpia el contexto antes de enviarlo a OpenRouter; la evidencia cruda no sale de Warden.
 - Los usuarios nuevos se crean con `is_active = false`. Un admin los habilita desde la tabla `profiles`.
+
+## Análisis modular de evidencia
+
+`@warden/risk-analysis` contiene contratos generales, validación de objetivos, registro
+y ejecutor compartido, más módulos de correo y credenciales en brechas. Los
+adaptadores DNS público y HIBP viven en `@warden/collectors`, que depende de
+`risk-analysis`; este último depende solo de `shared` y `zod` y no importa de apps.
+Los módulos producen observaciones sin scoring ni severidades inventadas.
+
+Estos proveedores son invocables mediante `runRiskAnalysis`, pero todavía no forman
+parte de `runScan`, del seed ni del catálogo productivo. Credenciales no se confunde
+con el dominio `secrets`: su integración al KRI y la persistencia requieren una
+decisión de modelo y migraciones. Alcance, uso y limitaciones en [risk-analysis.md](risk-analysis.md).
