@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@warden/shared": "workspace:*"
+    "@warden/shared": "workspace:*",
+    "@warden/risk-analysis": "workspace:*",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

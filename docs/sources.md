@@ -20,6 +20,13 @@ Para agregar una fuente:
 | `abusech` | reputation | Por verificar | Feeds públicos de abuse.ch | Pendiente |
 | `dnstwist` | impersonation | Apache-2.0 | Resuelve dominios parecidos, no el dominio evaluado. Desactivar la descarga de páginas web. | Pendiente |
 | `shodan` | exposure | Propietaria | Datos pasivos, pero **no es open source** | Bloqueado: pendiente de decisión |
+| `email-dns` | email | Registros DNS públicos; cliente implementado en Warden | Consulta únicamente `dns.google` por DoH; no conecta a HTTP/SMTP ni DNS autoritativo de la empresa | Adaptador implementado; sin registro en seed/pipeline |
+| `hibp` | credentials (módulo; fuera del catálogo KRI) | Datos de brechas CC BY 4.0 con atribución; acceso por dominio requiere suscripción | Consulta únicamente HIBP para dominios previamente verificados; descarta aliases y no prueba contraseñas | Adaptador implementado; sin registro en seed/pipeline |
+
+Los adaptadores nuevos y sus restricciones se describen en [risk-analysis.md](risk-analysis.md).
+La licencia de los datos de HIBP y la autorización requerida se documentan en su
+[API oficial](https://haveibeenpwned.com/API/v3). La consulta de cuentas por dominio
+no permite evaluar dominios arbitrarios: deben estar previamente verificados en HIBP.
 
 ## Pendientes de aclarar
 
