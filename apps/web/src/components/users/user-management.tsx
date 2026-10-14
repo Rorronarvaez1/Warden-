@@ -57,11 +57,11 @@ function PasswordFields() {
     <div className={styles.formRow}>
       <label className={styles.field}>
         Contraseña
-        <input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={72} />
+        <input name="password" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
       </label>
       <label className={styles.field}>
         Confirmar
-        <input name="confirmPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={72} />
+        <input name="confirmPassword" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
       </label>
     </div>
   );
@@ -102,7 +102,7 @@ function CreateUserForm() {
             <RoleSelect defaultValue="analyst" />
           </label>
           <PasswordFields />
-          <span className={styles.fieldHint}>Mínimo 12 caracteres.</span>
+          <span className={styles.fieldHint}>Mínimo 6 caracteres.</span>
           <button type="submit" className={dashboard.button}>
             {pending ? 'Creando…' : 'Crear usuario'}
           </button>

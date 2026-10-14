@@ -57,7 +57,7 @@ recrear la base local.
   una acción independiente. No puedes quitarte el rol admin ni desactivarte.
 - El login comprueba `is_active` después de autenticar y cierra la sesión si la
   cuenta todavía no está habilitada.
-- Las contraseñas requieren 12 caracteres y como máximo 72 bytes. No se guardan
+- Las contraseñas requieren 6 caracteres y como máximo 72 bytes. No se guardan
   en perfiles, logs ni auditoría ni se devuelven al navegador. Se envían a Auth
   para su almacenamiento mediante hash.
 - La auditoría registra actor, acción e id de usuario. Un fallo de auditoría
