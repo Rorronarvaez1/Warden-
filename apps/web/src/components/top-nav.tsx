@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './top-nav.module.css';
 
-// Activos y Reportes están pendientes; el resto existe.
+// Reportes está pendiente; el resto existe.
 const NAV = [
   { href: '/', label: 'Dashboard' },
   { href: '/assets', label: 'Activos' },

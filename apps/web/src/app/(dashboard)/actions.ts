@@ -5,7 +5,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { IMPLEMENTED_SOURCES } from '@/lib/dashboard-data';
+import { IMPLEMENTED_SOURCES, loadActiveCompany } from '@/lib/dashboard-data';
 
 export interface ActionResult {
   error?: string;
@@ -53,10 +53,19 @@ export async function registerCompany(_prev: ActionResult, formData: FormData): 
   return {};
 }
 
-export async function setAssetStatus(
-  assetId: string,
-  status: 'confirmed' | 'discarded' | 'pending',
-): Promise<ActionResult> {
+type AttributionStatus = 'confirmed' | 'discarded' | 'pending';
+const ATTRIBUTION_STATUSES: readonly string[] = ['confirmed', 'discarded', 'pending'];
+
+export async function setAssetStatus(assetId: string, status: AttributionStatus): Promise<ActionResult> {
+  return setAssetsStatus([assetId], status);
+}
+
+/** Cambia la atribución de varios activos a la vez (p. ej. confirmar los subdominios de crt.sh). */
+export async function setAssetsStatus(assetIds: string[], status: AttributionStatus): Promise<ActionResult> {
+  if (!ATTRIBUTION_STATUSES.includes(status)) return { error: 'Estado inválido' };
+  if (assetIds.length === 0) return {};
+  if (assetIds.length > 2000) return { error: 'Demasiados activos a la vez' };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -66,13 +75,71 @@ export async function setAssetStatus(
   const { data, error } = await supabase
     .from('assets')
     .update({ attribution_status: status, confirmed_by: status === 'confirmed' ? user.id : null })
-    .eq('id', assetId)
+    .in('id', assetIds)
     .select('id');
   if (error) return { error: permissionMessage(error) };
   // RLS no devuelve error al filtrar filas: sin filas actualizadas no hubo permiso.
-  if (data.length === 0) return { error: 'No tienes permiso para modificar este activo' };
+  if (data.length === 0) return { error: 'No tienes permiso para modificar estos activos' };
 
   revalidatePath('/');
+  revalidatePath('/assets');
+  return {};
+}
+
+const ASSET_PATTERNS = {
+  domain: DOMAIN_RE,
+  subdomain: DOMAIN_RE,
+  ip: /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/,
+  ip_range: /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\/(?:3[0-2]|[12]?\d)$/,
+  asn: /^AS\d{1,10}$/,
+} as const;
+
+const ASSET_EXAMPLES: Record<keyof typeof ASSET_PATTERNS, string> = {
+  domain: 'empresa.com.mx',
+  subdomain: 'portal.empresa.com.mx',
+  ip: '203.0.113.10',
+  ip_range: '203.0.113.0/24',
+  asn: 'AS64500',
+};
+
+/**
+ * Registra un activo a mano. Lo declara un analista, así que entra confirmado (como el
+ * dominio principal) y el siguiente escaneo ya lo incluye.
+ */
+export async function addAsset(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const type = String(formData.get('type') ?? '');
+  if (!(type in ASSET_PATTERNS)) return { error: 'Tipo de activo inválido' };
+  const assetType = type as keyof typeof ASSET_PATTERNS;
+  let value = String(formData.get('value') ?? '').trim();
+  value = assetType === 'asn' ? value.toUpperCase().replace(/^(\d)/, 'AS$1') : value.toLowerCase();
+  if (assetType === 'domain' || assetType === 'subdomain') {
+    value = value.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
+  }
+  if (!ASSET_PATTERNS[assetType].test(value)) {
+    return { error: `Valor inválido (ejemplo: ${ASSET_EXAMPLES[assetType]})` };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Sesión expirada' };
+
+  const company = await loadActiveCompany(supabase);
+  if (!company) return { error: 'Registra primero la empresa a evaluar' };
+
+  const { error } = await supabase.from('assets').insert({
+    company_id: company.id,
+    asset_type: assetType,
+    value,
+    discovery_source: 'manual',
+    attribution_status: 'confirmed',
+    confirmed_by: user.id,
+  });
+  if (error) return { error: error.code === '23505' ? 'Ese activo ya está registrado' : permissionMessage(error) };
+
+  revalidatePath('/');
+  revalidatePath('/assets');
   return {};
 }
 
