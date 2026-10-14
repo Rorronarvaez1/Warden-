@@ -1,74 +1,22 @@
-// Datos de ejemplo para el dashboard mientras no hay escaneos reales.
-// Warden evalúa a una sola empresa (la que contrató el proyecto), así que el
-// dashboard muestra su KRI, sus dominios de riesgo, sus activos y sus hallazgos.
-// Las formas imitan las tablas de Supabase (companies, scores, score_domains,
-// assets, findings) para que cambiar a datos reales sea reemplazar este import por queries.
+// Datos de ejemplo para ver el dashboard en desarrollo sin Supabase
+// (WARDEN_DEV_SKIP_AUTH=true y sin sesión). Con sesión, el dashboard usa datos reales
+// (dashboard-data.ts).
 //
 // Supuesto: puntaje 0–100 (más alto es mejor). El modelo real está pendiente:
 // ver docs/scoring-model.md.
 
-import type { AssetType, Confidence, Grade, RiskDomainKey, Severity } from '@warden/shared';
+import {
+  DOMAIN_LABELS,
+  type AssetRow,
+  type CompanyOverview,
+  type DashboardData,
+  type DomainScoreRow,
+  type ExposureOverview,
+  type FindingRow,
+  type TrendPoint,
+} from './dashboard-types';
 
-export interface CompanyOverview {
-  id: string;
-  name: string;
-  primaryDomain: string;
-  score: number;
-  grade: Grade;
-  /** Puntaje del escaneo anterior, para mostrar la variación. */
-  previousScore: number | null;
-  lastScanAt: string;
-  /** Próxima ejecución programada (schedules.next_run_at). */
-  nextScanAt: string | null;
-  openFindings: number;
-  openCriticalFindings: number;
-}
-
-export type AttributionStatus = 'pending' | 'confirmed' | 'discarded';
-
-export interface AssetRow {
-  id: string;
-  type: AssetType;
-  value: string;
-  status: AttributionStatus;
-  discoverySource: 'auto' | 'manual';
-  lastSeen: string;
-}
-
-export interface DomainScoreRow {
-  key: RiskDomainKey;
-  name: string;
-  weight: number;
-  score: number;
-  grade: Grade;
-  findingsCount: number;
-}
-
-export interface FindingRow {
-  id: string;
-  indicator: string;
-  domain: RiskDomainKey;
-  severity: Severity;
-  confidence: Confidence;
-  source: string;
-  observedAt: string;
-}
-
-export interface TrendPoint {
-  scannedAt: string;
-  score: number;
-}
-
-export const DOMAIN_LABELS: Record<RiskDomainKey, string> = {
-  exposure: 'Exposición de servicios',
-  email: 'Seguridad de correo',
-  certs: 'Certificados',
-  secrets: 'Secretos filtrados',
-  reputation: 'Reputación',
-  impersonation: 'Suplantación',
-};
-
-export const company: CompanyOverview = {
+const company: CompanyOverview = {
   id: 'c1',
   name: 'Empresa Ejemplo',
   primaryDomain: 'empresa-ejemplo.mx',
@@ -82,7 +30,7 @@ export const company: CompanyOverview = {
 };
 
 // Los pesos vienen del diagrama de arquitectura. El puntaje global es el promedio ponderado.
-export const domainScores: DomainScoreRow[] = [
+const domainScores: DomainScoreRow[] = [
   { key: 'exposure', name: DOMAIN_LABELS.exposure, weight: 25, score: 72.0, grade: 'C', findingsCount: 4 },
   { key: 'email', name: DOMAIN_LABELS.email, weight: 20, score: 78.0, grade: 'C', findingsCount: 3 },
   { key: 'certs', name: DOMAIN_LABELS.certs, weight: 15, score: 90.0, grade: 'A', findingsCount: 2 },
@@ -92,7 +40,7 @@ export const domainScores: DomainScoreRow[] = [
 ];
 
 // Las IPs usan el rango de documentación 203.0.113.0/24 (RFC 5737).
-export const assets: AssetRow[] = [
+const assets: AssetRow[] = [
   { id: 'a1', type: 'domain', value: 'empresa-ejemplo.mx', status: 'confirmed', discoverySource: 'manual', lastSeen: '2026-10-06T14:10:00Z' },
   { id: 'a2', type: 'subdomain', value: 'www.empresa-ejemplo.mx', status: 'confirmed', discoverySource: 'auto', lastSeen: '2026-10-06T14:10:00Z' },
   { id: 'a3', type: 'subdomain', value: 'mail.empresa-ejemplo.mx', status: 'confirmed', discoverySource: 'auto', lastSeen: '2026-10-06T14:10:00Z' },
@@ -104,7 +52,7 @@ export const assets: AssetRow[] = [
   { id: 'a9', type: 'subdomain', value: 'tienda-old.empresa-ejemplo.mx', status: 'discarded', discoverySource: 'auto', lastSeen: '2026-08-18T13:50:00Z' },
 ];
 
-export const recentFindings: FindingRow[] = [
+const recentFindings: FindingRow[] = [
   { id: 'f1', indicator: 'RDP (3389) visible en 203.0.113.10', domain: 'exposure', severity: 'critical', confidence: 'high', source: 'SpiderFoot', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f2', indicator: 'Dominio parecido: empresa-ejemp1o.mx', domain: 'impersonation', severity: 'high', confidence: 'medium', source: 'dnstwist', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f3', indicator: 'DMARC con política p=none', domain: 'email', severity: 'medium', confidence: 'high', source: 'DNS público', observedAt: '2026-10-06T14:10:00Z' },
@@ -114,7 +62,7 @@ export const recentFindings: FindingRow[] = [
 ];
 
 // KRI de los últimos 12 escaneos semanales.
-export const trend: TrendPoint[] = [
+const trend: TrendPoint[] = [
   { scannedAt: '2026-07-21T14:00:00Z', score: 74.0 },
   { scannedAt: '2026-07-28T14:00:00Z', score: 74.8 },
   { scannedAt: '2026-08-04T14:00:00Z', score: 74.1 },
@@ -128,3 +76,51 @@ export const trend: TrendPoint[] = [
   { scannedAt: '2026-09-29T14:05:00Z', score: 79.1 },
   { scannedAt: '2026-10-06T14:10:00Z', score: 81.3 },
 ];
+
+const exposure: ExposureOverview = {
+  source: {
+    sourceKey: 'internetdb',
+    name: 'Shodan InternetDB',
+    enabled: true,
+    lastRun: { status: 'ok', itemsReturned: 5, message: null },
+  },
+  hosts: [
+    {
+      ip: '203.0.113.10',
+      resolvedFrom: ['vpn.empresa-ejemplo.mx'],
+      worstSeverity: 'critical',
+      services: [
+        { findingId: 'e1', port: 22, service: 'SSH', severity: 'info', confidence: 'high' },
+        { findingId: 'e2', port: 3389, service: 'RDP', severity: 'critical', confidence: 'medium' },
+      ],
+      cves: [{ findingId: 'e3', cve: 'CVE-2019-0708', severity: 'critical', inKev: true, epss: 0.97 }],
+      observedAt: '2026-10-06T14:10:00Z',
+    },
+    {
+      ip: '203.0.113.4',
+      resolvedFrom: ['empresa-ejemplo.mx', 'www.empresa-ejemplo.mx'],
+      worstSeverity: 'high',
+      services: [{ findingId: 'e4', port: 21, service: 'FTP', severity: 'high', confidence: 'medium' }],
+      cves: [],
+      observedAt: '2026-10-06T14:10:00Z',
+    },
+  ],
+};
+
+export const mockDashboard: DashboardData = {
+  mode: 'mock',
+  isAdmin: true,
+  company,
+  domains: domainScores,
+  assets,
+  recentFindings,
+  trend,
+  exposure,
+  lastScan: {
+    id: 's1',
+    status: 'completed',
+    createdAt: '2026-10-06T14:00:00Z',
+    finishedAt: '2026-10-06T14:10:00Z',
+    errorMessage: null,
+  },
+};

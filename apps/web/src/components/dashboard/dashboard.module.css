@@ -340,3 +340,143 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* --- Encabezado y acciones --- */
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.scanControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.inlineActions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.button,
+.buttonGhost {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button {
+  background: var(--accent);
+  color: #0f1115;
+}
+
+.buttonGhost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.button:disabled,
+.buttonGhost:disabled,
+.linkButton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.linkButton {
+  padding: 0;
+  margin-left: 10px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.error {
+  margin: 0 0 8px;
+  color: var(--grade-f);
+  font-size: 13px;
+}
+
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* --- Exposición --- */
+
+.subText {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.table td.wrap {
+  white-space: normal;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.attribution {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.attribution a {
+  color: var(--accent);
+}
+
+/* --- Registro de empresa --- */
+
+.setup {
+  max-width: 520px;
+  margin: 48px auto 0;
+  padding: 28px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}

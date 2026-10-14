@@ -1,5 +1,5 @@
 import type { Confidence } from '@warden/shared';
-import { DOMAIN_LABELS, type FindingRow } from '@/lib/mock-dashboard';
+import { DOMAIN_LABELS, type FindingRow } from '@/lib/dashboard-types';
 import styles from './dashboard.module.css';
 import { formatDate } from './format';
 import { SeverityPill } from './grade-badge';
@@ -34,6 +34,7 @@ export function RecentFindings({ findings }: { findings: FindingRow[] }) {
           </li>
         ))}
       </ul>
+      {findings.length === 0 && <p className={styles.empty}>Sin hallazgos abiertos.</p>}
     </section>
   );
 }

@@ -49,7 +49,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 |---|---|
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
-| Dashboard | 🟡 Vista de una sola empresa con **datos mock** (`apps/web/src/lib/mock-dashboard.ts`) |
+| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, panel de exposición, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
 | Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, aún no produce hallazgos) e `internetdb` (resuelve IPs y produce hallazgos de `exposure`); adaptadores `email_dns` y `hibp` disponibles por separado |
@@ -59,7 +59,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Páginas Activos / Hallazgos / Escaneos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
-**No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor").
+**No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
 
 ---
 
@@ -95,7 +95,9 @@ Warden-/
 │   │       ├── lib/
 │   │       │   ├── supabase/client.ts   Cliente para Client Components
 │   │       │   ├── supabase/server.ts   Cliente para Server Components / Route Handlers
-│   │       │   └── mock-dashboard.ts    Datos de ejemplo (temporal)
+│   │       │   ├── dashboard-types.ts   Formas que consumen los componentes del dashboard
+│   │       │   ├── dashboard-data.ts    loadDashboard(): consultas a Supabase con la sesión (RLS)
+│   │       │   └── mock-dashboard.ts    Datos de ejemplo (solo dev sin sesión)
 │   │       └── proxy.ts                 "Middleware" de Next 16: refresca sesión, redirige a /login
 │   └── worker/                 @warden/worker — consumidor de colas
 │       ├── Dockerfile          Construir desde la raíz: docker build -f apps/worker/Dockerfile .
@@ -232,7 +234,7 @@ Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_sc
 2. **Dos llaves de Supabase, dos mundos.**
    - `apps/web`: solo `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` + sesión del usuario → todo pasa por RLS.
    - `apps/worker`: `SUPABASE_SECRET_KEY` (service role, omite RLS). **Nunca** debe aparecer en `apps/web`, en variables `NEXT_PUBLIC_*`, ni en Vercel.
-3. **RLS siempre activo.** Toda tabla nueva necesita `enable row level security` + políticas, siguiendo el patrón de `20261001000800_enable_rls_policies.sql`. Los analistas solo pueden actualizar `status`, `status_reason`, `status_by` de `findings`.
+3. **RLS siempre activo.** Toda tabla nueva necesita `enable row level security` + políticas, siguiendo el patrón de `20261001000800_enable_rls_policies.sql`, **y GRANTs explícitos** a `authenticated`/`service_role` (ver `20261014000200_grant_data_api_privileges.sql`): Supabase ya no expone automáticamente las tablas nuevas de `public` a la Data API. Los analistas solo pueden actualizar `status`, `status_reason`, `status_by` de `findings`.
 4. **Funciones `security definer`** llevan `set search_path = ''`, nombres calificados (`public.x`) y `revoke/grant execute` explícitos.
 5. **IA:** todo contexto pasa por `redact()` antes de ir a OpenRouter. La evidencia cruda (secretos, emails) nunca sale de Warden.
 6. **Secretos de fuentes:** en BD solo se guarda `secret_ref` (nombre de la variable de entorno del worker).
@@ -269,7 +271,8 @@ Estilo de código:
 - Estilos con CSS Modules y los tokens de `globals.css` (`var(--surface)`, `var(--grade-c)`…). Tema oscuro. No agregar Tailwind ni librerías de UI sin acordarlo.
 - Next 16 usa `src/proxy.ts` (antes `middleware.ts`).
 - Route Handlers: valida el body, delega en una RPC con la sesión del usuario, traduce `42501` a 403.
-- Al reemplazar mocks, respeta las formas de `mock-dashboard.ts` (`CompanyOverview`, `DomainScoreRow`, `AssetRow`, `FindingRow`, …) para no romper los componentes.
+- Las formas del dashboard viven en `lib/dashboard-types.ts` (`DashboardData`, `CompanyOverview`, `ExposureHost`, …); `dashboard-data.ts` y `mock-dashboard.ts` producen la misma forma.
+- Las mutaciones del dashboard son Server Actions en `app/(dashboard)/actions.ts` con la sesión del usuario; RLS decide el permiso (una actualización filtrada por RLS devuelve 0 filas, no error).
 
 ### Base de datos
 - **Nunca edites una migración ya aplicada**: crea una nueva.
