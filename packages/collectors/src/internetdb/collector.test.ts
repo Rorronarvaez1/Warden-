@@ -70,6 +70,13 @@ describe('internetdbCollector', () => {
     expect(result.findings).toMatchObject([{ severity: 'medium', evidence: { inKev: false, epss: null } }]);
   });
 
+  it('falla si ninguna consulta DNS responde, aunque haya IPs confirmadas', async () => {
+    const fetchMock = vi.fn(async (_url: URL) => json({}, 503));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(internetdbCollector.collect(target, ctx)).rejects.toThrow(/dns.google/);
+    expect(fetchMock.mock.calls.every(([url]) => url.hostname === 'dns.google')).toBe(true);
+  });
+
   it('falla si ninguna consulta a InternetDB responde', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: URL) => url.hostname === 'dns.google'
       ? json({ Status: 0, Answer: [{ type: 1, data: '203.0.113.10' }] })

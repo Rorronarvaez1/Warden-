@@ -1,4 +1,4 @@
-import type { TrendPoint } from '@/lib/mock-dashboard';
+import type { TrendPoint } from '@/lib/dashboard-types';
 import styles from './dashboard.module.css';
 import { formatDate } from './format';
 
@@ -18,13 +18,16 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
           <h2 className={styles.cardTitle}>Tendencia del KRI</h2>
           <p className={styles.cardHint}>KRI de la empresa, últimos {points.length} escaneos</p>
         </div>
-        <span className={styles.chip} style={{ color: delta >= 0 ? 'var(--grade-a)' : 'var(--grade-f)' }}>
+        {points.length > 1 && <span className={styles.chip} style={{ color: delta >= 0 ? 'var(--grade-a)' : 'var(--grade-f)' }}>
           {delta >= 0 ? '+' : ''}
           {delta.toFixed(1)} pts
-        </span>
+        </span>}
       </header>
 
-      <div className={styles.trend}>
+      {points.length === 0 && (
+        <p className={styles.empty}>Sin puntajes todavía: el modelo de scoring está pendiente (docs/scoring-model.md).</p>
+      )}
+      {points.length > 0 && <div className={styles.trend}>
         {points.map((p) => (
           <div key={p.scannedAt} className={styles.trendCol} title={`${formatDate(p.scannedAt)}: ${p.score.toFixed(1)}`}>
             <div className={styles.trendTrack}>
@@ -33,7 +36,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
             <span className={styles.trendLabel}>{formatDate(p.scannedAt)}</span>
           </div>
         ))}
-      </div>
+      </div>}
     </section>
   );
 }

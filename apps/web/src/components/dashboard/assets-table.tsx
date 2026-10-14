@@ -1,8 +1,9 @@
 'use client';
 
 import type { AssetType } from '@warden/shared';
-import { useState } from 'react';
-import type { AssetRow, AttributionStatus } from '@/lib/mock-dashboard';
+import { useState, useTransition } from 'react';
+import { setAssetStatus } from '@/app/(dashboard)/actions';
+import type { AssetRow, AttributionStatus } from '@/lib/dashboard-types';
 import styles from './dashboard.module.css';
 import { formatDate } from './format';
 
@@ -29,9 +30,19 @@ const STATUS_COLORS: Record<AttributionStatus, string> = {
 // Los pendientes van primero: solo los confirmados se escanean (ver run-scan.ts).
 const STATUS_ORDER: Record<AttributionStatus, number> = { pending: 0, confirmed: 1, discarded: 2 };
 
-export function AssetsTable({ assets }: { assets: AssetRow[] }) {
+export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable: boolean }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<AttributionStatus | ''>('');
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function changeStatus(assetId: string, next: AttributionStatus) {
+    setError(null);
+    startTransition(async () => {
+      const result = await setAssetStatus(assetId, next);
+      if (result.error) setError(result.error);
+    });
+  }
 
   const q = query.trim().toLowerCase();
   const rows = assets
@@ -76,6 +87,8 @@ export function AssetsTable({ assets }: { assets: AssetRow[] }) {
         </select>
       </div>
 
+      {error && <p className={styles.error}>{error}</p>}
+
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
@@ -85,6 +98,7 @@ export function AssetsTable({ assets }: { assets: AssetRow[] }) {
               <th>Estado</th>
               <th>Origen</th>
               <th>Visto por última vez</th>
+              {editable && <th />}
             </tr>
           </thead>
           <tbody>
@@ -99,6 +113,30 @@ export function AssetsTable({ assets }: { assets: AssetRow[] }) {
                 </td>
                 <td className={styles.muted}>{a.discoverySource === 'auto' ? 'Descubierto' : 'Manual'}</td>
                 <td className={styles.muted}>{formatDate(a.lastSeen)}</td>
+                {editable && (
+                  <td className={styles.num}>
+                    {a.status !== 'confirmed' && (
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        disabled={pending}
+                        onClick={() => changeStatus(a.id, 'confirmed')}
+                      >
+                        Confirmar
+                      </button>
+                    )}
+                    {a.status === 'pending' && (
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        disabled={pending}
+                        onClick={() => changeStatus(a.id, 'discarded')}
+                      >
+                        Descartar
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

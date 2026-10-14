@@ -25,7 +25,13 @@ export const internetdbCollector: Collector = {
   isNoContact: true,
 
   async collect(target, ctx) {
-    const { ips: resolved } = await resolveIpv4(exposureNames(target), ctx.signal);
+    const names = exposureNames(target);
+    const { ips: resolved, failed } = await resolveIpv4(names, ctx.signal);
+    // Sin ninguna respuesta de DNS, 0 hallazgos no significa 0 exposición: reportarlo como
+    // 'ok' haría que resolve.ts cerrara hallazgos abiertos que simplemente no se consultaron.
+    if (failed.length === new Set(names.map((n) => n.toLowerCase())).size) {
+      throw new Error(`dns.google no respondió para ningún dominio (${failed.length} consultados)`);
+    }
     for (const asset of target.assets) {
       if (asset.type === 'ip' && isPublicIpv4(asset.value) && !resolved.has(asset.value)) {
         resolved.set(asset.value, []);

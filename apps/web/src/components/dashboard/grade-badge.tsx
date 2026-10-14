@@ -10,7 +10,7 @@ export const GRADE_COLORS: Record<Grade, string> = {
   F: 'var(--grade-f)',
 };
 
-const SEVERITY_COLORS: Record<Severity, string> = {
+export const SEVERITY_COLORS: Record<Severity, string> = {
   critical: 'var(--grade-f)',
   high: 'var(--grade-d)',
   medium: 'var(--grade-c)',
