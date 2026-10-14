@@ -56,7 +56,8 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Páginas Activos / Hallazgos / Escaneos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
+| Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
+| Páginas Activos / Hallazgos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
@@ -289,7 +290,7 @@ Estilo de código:
    - `collector.ts` que exporta un `Collector` (`isNoContact: true`, respeta `ctx.signal`).
    - `mapper.ts` con la transformación pura de la respuesta → `DiscoveredAsset[]` / `NormalizedFinding[]`.
    - `mapper.test.ts` con vitest.
-3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
+3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. Lo observado que no es hallazgo (p. ej. IPs de CDN omitidas) va en `CollectorResult.notices`; el worker lo guarda en `scan_sources.notices` junto con `assets_returned` / `findings_returned`. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
 4. Registrarlo en `packages/collectors/src/registry.ts`.
 5. Insertarlo en `supabase/seed.sql` (deshabilitado por defecto; un admin lo habilita).
 6. Si requiere API key: variable en `.env.example` (sección worker) + fila en `source_credentials` con el `secret_ref`.

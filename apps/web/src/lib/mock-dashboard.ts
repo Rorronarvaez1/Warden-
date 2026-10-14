@@ -82,7 +82,13 @@ const exposure: ExposureOverview = {
     sourceKey: 'internetdb',
     name: 'Shodan InternetDB',
     enabled: true,
-    lastRun: { status: 'ok', itemsReturned: 5, message: null },
+    lastRun: {
+      status: 'ok',
+      assetsReturned: 3,
+      findingsReturned: 4,
+      message: null,
+      cdnHosts: [{ ip: '198.51.100.20', provider: 'Imperva', resolvedFrom: ['www.empresa-ejemplo.mx'], portsObserved: 412 }],
+    },
   },
   hosts: [
     {
@@ -122,5 +128,6 @@ export const mockDashboard: DashboardData = {
     createdAt: '2026-10-06T14:00:00Z',
     finishedAt: '2026-10-06T14:10:00Z',
     errorMessage: null,
+    sourceFailures: false,
   },
 };

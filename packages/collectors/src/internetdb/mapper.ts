@@ -1,7 +1,7 @@
 import type { Confidence, Severity } from '@warden/shared';
 import { z } from 'zod';
 import { fingerprint } from '../fingerprint';
-import type { NormalizedFinding } from '../types';
+import type { CollectorNotice, NormalizedFinding } from '../types';
 import { cveSeverity, EMPTY_ENRICHMENT, type CveEnrichment } from './cve-enrichment';
 
 export const SOURCE_KEY = 'internetdb';
@@ -145,4 +145,45 @@ export function mapExposure(
   }
 
   return findings;
+}
+
+/**
+ * Avisos de las IPs que mapExposure omite por estar etiquetadas como CDN: sin ellos un
+ * escaneo así parece vacío. El proveedor sale de los CPE cuando InternetDB lo reporta.
+ */
+export function cdnNotices(hosts: readonly ObservedHost[]): CollectorNotice[] {
+  return hosts.flatMap(({ ip, resolvedFrom, data }) => {
+    if (!data?.tags.includes('cdn')) return [];
+    const provider = cdnProvider(data.cpes);
+    return [{
+      kind: 'cdn' as const,
+      subject: ip,
+      message: `${ip} pertenece a un CDN${provider ? ` (${provider})` : ''}: sus puertos y CVE son del proveedor, no se atribuyen a la empresa`,
+      details: {
+        ip,
+        provider,
+        resolvedFrom,
+        portsObserved: new Set(data.ports).size,
+        sharedHostnames: data.hostnames.length,
+        attribution: ATTRIBUTION,
+      },
+    }];
+  });
+}
+
+// Proveedores de CDN/WAF frecuentes, reconocibles por su CPE en InternetDB.
+const CDN_CPES: ReadonlyArray<[string, string]> = [
+  ['imperva', 'Imperva'],
+  ['incapsula', 'Imperva'],
+  ['cloudflare', 'Cloudflare'],
+  ['akamai', 'Akamai'],
+  ['fastly', 'Fastly'],
+  ['amazon:cloudfront', 'Amazon CloudFront'],
+  ['azure', 'Azure Front Door'],
+  ['sucuri', 'Sucuri'],
+];
+
+function cdnProvider(cpes: readonly string[]): string | null {
+  const lower = cpes.map((c) => c.toLowerCase());
+  return CDN_CPES.find(([hint]) => lower.some((c) => c.includes(hint)))?.[1] ?? null;
 }

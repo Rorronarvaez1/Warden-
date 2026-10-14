@@ -26,6 +26,7 @@ export function ExposurePanel({ exposure, isAdmin }: { exposure: ExposureOvervie
   const { source, hosts } = exposure;
   const services = hosts.reduce((n, h) => n + h.services.length, 0);
   const cves = hosts.reduce((n, h) => n + h.cves.length, 0);
+  const cdnHosts = source?.lastRun?.cdnHosts ?? [];
 
   return (
     <section className={styles.card}>
@@ -69,9 +70,29 @@ export function ExposurePanel({ exposure, isAdmin }: { exposure: ExposureOvervie
         </p>
       )}
 
+      {cdnHosts.length > 0 && (
+        <div className={styles.notice}>
+          <p className={styles.noticeTitle}>
+            {cdnHosts.length === 1 ? '1 IP detrás de un CDN' : `${cdnHosts.length} IPs detrás de un CDN`}: sus
+            puertos y CVE son del proveedor y no se cuentan como hallazgos de la empresa.
+          </p>
+          <ul className={styles.cdnList}>
+            {cdnHosts.map((c) => (
+              <li key={c.ip}>
+                <strong>{c.ip}</strong>
+                {c.resolvedFrom.length > 0 && ` (${c.resolvedFrom.join(', ')})`} · {c.provider ?? 'CDN'} ·{' '}
+                {c.portsObserved} puertos del proveedor omitidos
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {hosts.length === 0 ? (
         <p className={styles.empty}>
-          {source?.lastRun?.status === 'ok'
+          {source?.lastRun?.status === 'ok' && cdnHosts.length > 0
+            ? 'Sin servidores propios observados: confirma subdominios que no pasen por el CDN (correo, VPN, portales) para medir su exposición.'
+            : source?.lastRun?.status === 'ok'
             ? 'Sin servicios expuestos observados. Ausencia de datos no garantiza ausencia de riesgo.'
             : source?.lastRun?.status === 'failed'
               ? 'Sin datos: la fuente falló. Revisa el error y vuelve a escanear.'

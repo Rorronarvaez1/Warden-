@@ -19,6 +19,7 @@ import {
   DOMAIN_LABELS,
   type AssetRow,
   type AttributionStatus,
+  type CdnHost,
   type DashboardData,
   type DomainScoreRow,
   type ExposureHost,
@@ -42,7 +43,7 @@ export type DashboardState =
   /** Aún no se registra la empresa a evaluar. */
   | { kind: 'no-company'; isAdmin: boolean };
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+export type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export async function loadDashboard(): Promise<DashboardState> {
   const supabase = await createClient();
@@ -58,18 +59,10 @@ export async function loadDashboard(): Promise<DashboardState> {
     throw new Error('Sesión requerida');
   }
 
-  const [{ data: isAdmin }, companyRes] = await Promise.all([
+  const [{ data: isAdmin }, company] = await Promise.all([
     supabase.rpc('is_admin'),
-    supabase
-      .from('companies')
-      .select('id, name, primary_domain')
-      .eq('status', 'active')
-      .order('created_at')
-      .limit(1)
-      .maybeSingle(),
+    loadActiveCompany(supabase),
   ]);
-  if (companyRes.error) throw companyRes.error;
-  const company = companyRes.data;
   if (!company) return { kind: 'no-company', isAdmin: isAdmin === true };
 
   const [assets, openFindings, recent, scores, lastScan, schedule, weights, exposure] = await Promise.all([
@@ -121,6 +114,19 @@ export async function loadDashboard(): Promise<DashboardState> {
       lastScan: lastScan.latest,
     },
   };
+}
+
+/** La empresa evaluada: la activa más antigua (Warden evalúa a una sola empresa). */
+export async function loadActiveCompany(supabase: Supabase) {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name, primary_domain')
+    .eq('status', 'active')
+    .order('created_at')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 async function loadAssets(supabase: Supabase, companyId: string): Promise<AssetRow[]> {
@@ -227,7 +233,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
   const [latestRes, completedRes] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, status, created_at, finished_at, error_message')
+      .select('id, status, created_at, finished_at, error_message, scan_sources(status)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -251,6 +257,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
         createdAt: s.created_at,
         finishedAt: s.finished_at,
         errorMessage: s.error_message,
+        sourceFailures: s.scan_sources.some((r) => isSourceFailure(r.status)),
       }
     : null;
   return { latest, lastCompletedAt: completedRes.data?.finished_at ?? null };
@@ -270,7 +277,7 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
     // Resultado de la fuente en el escaneo más reciente que la registró.
     supabase
       .from('scan_sources')
-      .select('status, items_returned, message, scans!inner(company_id, created_at)')
+      .select('status, assets_returned, findings_returned, message, notices, scans!inner(company_id, created_at)')
       .eq('source_key', EXPOSURE_SOURCE_KEY)
       .eq('scans.company_id', companyId)
       .order('scans(created_at)', { ascending: false })
@@ -287,8 +294,10 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
         lastRun: lastRunRes.data
           ? {
               status: oneOf(SCAN_SOURCE_STATUSES, lastRunRes.data.status, 'failed'),
-              itemsReturned: lastRunRes.data.items_returned,
+              assetsReturned: lastRunRes.data.assets_returned,
+              findingsReturned: lastRunRes.data.findings_returned,
               message: lastRunRes.data.message,
+              cdnHosts: parseCdnHosts(lastRunRes.data.notices),
             }
           : null,
       }
@@ -351,6 +360,29 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
   };
 }
 
+/** Una fuente que falló o fue bloqueada no aportó datos, aunque el escaneo terminara. */
+export function isSourceFailure(status: string): boolean {
+  return status === 'failed' || status === 'blocked';
+}
+
+/** Avisos de tipo 'cdn' que guarda el colector internetdb en scan_sources.notices. */
+export function parseCdnHosts(notices: Json): CdnHost[] {
+  if (!Array.isArray(notices)) return [];
+  return notices.flatMap((n) => {
+    const notice = asRecord(n);
+    if (notice.kind !== 'cdn') return [];
+    const d = asRecord(notice.details ?? null);
+    const ip = typeof d.ip === 'string' ? d.ip : typeof notice.subject === 'string' ? notice.subject : null;
+    if (!ip) return [];
+    return [{
+      ip,
+      provider: typeof d.provider === 'string' ? d.provider : null,
+      resolvedFrom: stringArray(d.resolvedFrom),
+      portsObserved: typeof d.portsObserved === 'number' ? d.portsObserved : 0,
+    }];
+  });
+}
+
 function severityRank(s: Severity): number {
   return SEVERITIES.indexOf(s);
 }
@@ -359,7 +391,8 @@ function asGrade(value: string): Grade {
   return oneOf(GRADES, value.trim(), 'F');
 }
 
-function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
+/** Valor de un CHECK constraint de texto; `fallback` si la BD devolviera algo inesperado. */
+export function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
   return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 
