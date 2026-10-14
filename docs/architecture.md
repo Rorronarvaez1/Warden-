@@ -17,7 +17,8 @@
 2. Ambos crean una fila en `scans` (`queued`) y encolan `{ scan_id }` en `scan_requests`.
 3. El worker lee la cola (`queue_read`) y ejecuta `runScan`:
    - **collect:** cada colector pasa por `checkCollector` (compuerta no-contact) y se registra en `scan_sources`.
-   - **persist:** los activos descubiertos quedan `pending`; los hallazgos hacen upsert por `(company_id, fingerprint)`.
+   - **persist:** los activos descubiertos quedan `pending`; los hallazgos hacen upsert por `(company_id, fingerprint)` y cada fuente registra `finding_sources.last_seen_scan_id`.
+   - **resolve** (`pipeline/resolve.ts`): un hallazgo `open` que su fuente no observó en los últimos `UNSEEN_SCANS_TO_RESOLVE` escaneos con `scan_sources.status = 'ok'` (supuesto: 3) pasa a `resolved` con `status_by = null`. Una fuente fallida, omitida o bloqueada nunca resuelve hallazgos ni cuenta para la racha; `false_positive` y `accepted` no se tocan. Si la fuente vuelve a observarlo, el worker lo reabre (solo los que resolvió él, no los de un analista).
    - **score:** pendiente de definir el modelo del KRI (ver `scoring-model.md`).
 4. Si el worker muere a mitad del escaneo, el mensaje reaparece al vencer `QUEUE_VISIBILITY_TIMEOUT`. Después de 3 intentos, el escaneo se marca como `failed`.
 

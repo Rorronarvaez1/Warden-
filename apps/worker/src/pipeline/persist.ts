@@ -1,6 +1,7 @@
 import type { Json } from '@warden/db';
 import type { Db } from '../supabase';
 import type { SourceResult } from './collect';
+import { reopenAutoResolved } from './resolve';
 
 interface ScanRow {
   id: string;
@@ -9,7 +10,8 @@ interface ScanRow {
 
 /**
  * Guarda activos descubiertos (quedan 'pending' hasta que un analista los confirme)
- * y hace upsert de hallazgos por (company_id, fingerprint), sin tocar su estado de triage.
+ * y hace upsert de hallazgos por (company_id, fingerprint), sin tocar su estado de triage
+ * (salvo reabrir los que el propio worker resolvió; ver resolve.ts).
  */
 export async function persistResults(db: Db, scan: ScanRow, results: SourceResult[]) {
   const now = new Date().toISOString();
@@ -73,13 +75,19 @@ export async function persistResults(db: Db, scan: ScanRow, results: SourceResul
     if (error) throw error;
 
     const rawByFingerprint = new Map(result.findings.map((f) => [f.fingerprint, f.rawReference]));
-    await db.from('finding_sources').upsert(
+    // last_seen_scan_id alimenta la resolución automática: si no se guarda, un hallazgo
+    // vigente podría resolverse por error, así que el fallo debe tumbar el escaneo.
+    const { error: sourcesError } = await db.from('finding_sources').upsert(
       (saved ?? []).map((s) => ({
         finding_id: s.id,
         source_key: sourceKey,
         raw_reference: (rawByFingerprint.get(s.fingerprint) ?? null) as Json,
+        last_seen_scan_id: scan.id,
       })),
       { onConflict: 'finding_id,source_key' },
     );
+    if (sourcesError) throw sourcesError;
+
+    await reopenAutoResolved(db, (saved ?? []).map((s) => s.id));
   }
 }
