@@ -28,7 +28,7 @@ export function RecentFindings({ findings }: { findings: FindingRow[] }) {
               <SeverityPill severity={f.severity} />
             </div>
             <div className={styles.findingMeta}>
-              {f.company} · {DOMAIN_LABELS[f.domain]} · {f.source} · confianza {CONFIDENCE_LABELS[f.confidence]} ·{' '}
+              {DOMAIN_LABELS[f.domain]} · {f.source} · confianza {CONFIDENCE_LABELS[f.confidence]} ·{' '}
               {formatDate(f.observedAt)}
             </div>
           </li>

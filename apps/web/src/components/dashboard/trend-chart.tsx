@@ -1,5 +1,6 @@
 import type { TrendPoint } from '@/lib/mock-dashboard';
 import styles from './dashboard.module.css';
+import { formatDate } from './format';
 
 // Barras en CSS: la altura es relativa al rango de los datos para que el cambio se note.
 export function TrendChart({ points }: { points: TrendPoint[] }) {
@@ -15,7 +16,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
       <header className={styles.cardHeader}>
         <div>
           <h2 className={styles.cardTitle}>Tendencia del KRI</h2>
-          <p className={styles.cardHint}>Puntaje promedio, últimas {points.length} semanas</p>
+          <p className={styles.cardHint}>KRI de la empresa, últimos {points.length} escaneos</p>
         </div>
         <span className={styles.chip} style={{ color: delta >= 0 ? 'var(--grade-a)' : 'var(--grade-f)' }}>
           {delta >= 0 ? '+' : ''}
@@ -25,11 +26,11 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
 
       <div className={styles.trend}>
         {points.map((p) => (
-          <div key={p.label} className={styles.trendCol} title={`${p.label}: ${p.score.toFixed(1)}`}>
+          <div key={p.scannedAt} className={styles.trendCol} title={`${formatDate(p.scannedAt)}: ${p.score.toFixed(1)}`}>
             <div className={styles.trendTrack}>
               <div className={styles.trendBar} style={{ height: `${((p.score - min) / (max - min)) * 100}%` }} />
             </div>
-            <span className={styles.trendLabel}>{p.label}</span>
+            <span className={styles.trendLabel}>{formatDate(p.scannedAt)}</span>
           </div>
         ))}
       </div>
