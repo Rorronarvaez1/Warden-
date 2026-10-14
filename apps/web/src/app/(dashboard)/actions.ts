@@ -97,6 +97,7 @@ export async function requestScan(companyId: string): Promise<ActionResult> {
   if (error) return { error: permissionMessage(error) };
 
   revalidatePath('/');
+  revalidatePath('/scans');
   return {};
 }
 

@@ -480,3 +480,21 @@
   font-size: 13px;
   color: var(--muted);
 }
+
+/* --- Historial de escaneos --- */
+
+.sourceRuns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.errorText {
+  margin-top: 4px;
+  color: var(--grade-f);
+  font-size: 12px;
+  white-space: normal;
+}

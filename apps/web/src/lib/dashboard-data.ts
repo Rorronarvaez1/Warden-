@@ -42,7 +42,7 @@ export type DashboardState =
   /** Aún no se registra la empresa a evaluar. */
   | { kind: 'no-company'; isAdmin: boolean };
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+export type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export async function loadDashboard(): Promise<DashboardState> {
   const supabase = await createClient();
@@ -58,18 +58,10 @@ export async function loadDashboard(): Promise<DashboardState> {
     throw new Error('Sesión requerida');
   }
 
-  const [{ data: isAdmin }, companyRes] = await Promise.all([
+  const [{ data: isAdmin }, company] = await Promise.all([
     supabase.rpc('is_admin'),
-    supabase
-      .from('companies')
-      .select('id, name, primary_domain')
-      .eq('status', 'active')
-      .order('created_at')
-      .limit(1)
-      .maybeSingle(),
+    loadActiveCompany(supabase),
   ]);
-  if (companyRes.error) throw companyRes.error;
-  const company = companyRes.data;
   if (!company) return { kind: 'no-company', isAdmin: isAdmin === true };
 
   const [assets, openFindings, recent, scores, lastScan, schedule, weights, exposure] = await Promise.all([
@@ -121,6 +113,19 @@ export async function loadDashboard(): Promise<DashboardState> {
       lastScan: lastScan.latest,
     },
   };
+}
+
+/** La empresa evaluada: la activa más antigua (Warden evalúa a una sola empresa). */
+export async function loadActiveCompany(supabase: Supabase) {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name, primary_domain')
+    .eq('status', 'active')
+    .order('created_at')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 async function loadAssets(supabase: Supabase, companyId: string): Promise<AssetRow[]> {
@@ -359,7 +364,8 @@ function asGrade(value: string): Grade {
   return oneOf(GRADES, value.trim(), 'F');
 }
 
-function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
+/** Valor de un CHECK constraint de texto; `fallback` si la BD devolviera algo inesperado. */
+export function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
   return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 
