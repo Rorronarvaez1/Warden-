@@ -2,6 +2,7 @@ import type { CollectorTarget } from '@warden/collectors';
 import type { AssetType } from '@warden/shared';
 import { collectAll } from '../pipeline/collect';
 import { persistResults } from '../pipeline/persist';
+import { resolveUnseenFindings } from '../pipeline/resolve';
 import type { Db } from '../supabase';
 
 const MAX_ATTEMPTS = 3;
@@ -52,6 +53,7 @@ export async function runScan(
 
     const results = await collectAll(db, scanId, target, opts.signal);
     await persistResults(db, scan, results);
+    await resolveUnseenFindings(db, scan);
 
     // TODO: calcular y guardar el score con @warden/scoring cuando exista el modelo
     // (docs/scoring-model.md) y encolar report_requests para el resumen con IA.

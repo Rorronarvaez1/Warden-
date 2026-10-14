@@ -3,7 +3,7 @@
 Toda fuente debe cumplir dos reglas:
 
 1. **No-contact:** no envía tráfico a la infraestructura evaluada. Consultar registros públicos (CT logs, DNS público, feeds, repositorios públicos) está permitido.
-2. **Open source**, o un dato público con licencia abierta.
+2. **Gratuita:** open source o un servicio sin costo para nuestro uso. La regla busca evitar servicios de pago; una API propietaria gratuita es aceptable si sus términos permiten nuestro uso. Excepción aprobada: HIBP (ver decisión abajo).
 
 Para agregar una fuente:
 
@@ -14,12 +14,14 @@ Para agregar una fuente:
 | source_key | Dominio | Licencia | Por qué es no-contact | Estado |
 |---|---|---|---|---|
 | `spiderfoot` | exposure | MIT | Solo con el caso de uso *passive* | Colector pendiente |
+| `internetdb` | exposure | Shodan InternetDB: gratuito **solo para uso no comercial**, sin API key | Consulta la base de datos de Shodan (sus propios escaneos) por IP; las IPs se obtienen resolviendo activos confirmados vía `dns.google`. Ninguna petición llega a la empresa | **Implementado** (puertos y CVE inferidos; deshabilitado por defecto) |
+| `internetdb` (enriquecimiento) | exposure | CISA KEV (dominio público, EE. UU.) y FIRST EPSS (gratuito) | Catálogos de vulnerabilidades consultados por ID de CVE; no involucran activos de la empresa | Usados por `internetdb` para la severidad de CVE; sin fila propia en `sources` |
 | `crtsh` | certs | Por verificar | Consulta logs públicos de Certificate Transparency | **Implementado** (descubrimiento de subdominios) |
 | `checkdmarc` | email | Apache-2.0 | Lee registros DNS públicos (SPF, DMARC, MX) | Pendiente |
 | `gitleaks` | secrets | MIT | Escanea repositorios públicos, no la infraestructura | Pendiente |
 | `abusech` | reputation | Por verificar | Feeds públicos de abuse.ch | Pendiente |
 | `dnstwist` | impersonation | Apache-2.0 | Resuelve dominios parecidos, no el dominio evaluado. Desactivar la descarga de páginas web. | Pendiente |
-| `shodan` | exposure | Propietaria | Datos pasivos, pero **no es open source** | Bloqueado: pendiente de decisión |
+| `shodan` | exposure | Propietaria, de pago | Datos pasivos, pero la API completa requiere suscripción | Bloqueado: se usa `internetdb` (gratuito) en su lugar |
 | `email_dns` | email | Registros DNS públicos; cliente implementado en Warden | Consulta únicamente `dns.google` por DoH; no conecta a HTTP/SMTP ni DNS autoritativo de la empresa | Adaptador implementado; sin registro en seed/pipeline |
 | `hibp` | credentials (módulo; fuera del catálogo KRI) | Datos de brechas CC BY 4.0 con atribución; acceso por dominio requiere suscripción | Consulta únicamente HIBP para dominios previamente verificados; descarta aliases y no prueba contraseñas | Adaptador implementado; sin registro en seed/pipeline |
 
@@ -44,6 +46,6 @@ aunque el acceso por API sea de pago. Condiciones:
 
 ## Pendientes de aclarar
 
-- **Shodan:** su API es comercial. Hay que decidir si la regla "solo open source" aplica también a las APIs de datos.
+- **InternetDB:** si Warden pasa a uso comercial, requiere licencia enterprise de Shodan.
 - **Hackviser:** es una plataforma de entrenamiento, no una fuente de datos. Confirmar a qué se refiere.
 - **osintframework.com:** es un directorio de herramientas. Cada herramienta que se tome de ahí se evalúa aquí por separado.

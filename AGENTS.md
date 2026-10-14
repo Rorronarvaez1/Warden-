@@ -32,7 +32,7 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 
 | key | Nombre | Fuente prevista |
 |---|---|---|
-| `exposure` | Exposición de servicios | SpiderFoot (pasivo) |
+| `exposure` | Exposición de servicios | Shodan InternetDB ✅ (SpiderFoot pasivo previsto) |
 | `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público (adaptador implementado); checkdmarc previsto |
 | `certs` | Certificados (CT logs) | crt.sh ✅ |
 | `secrets` | Secretos filtrados en repos públicos | gitleaks |
@@ -52,7 +52,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Vista de una sola empresa con **datos mock** (`apps/web/src/lib/mock-dashboard.ts`) |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 Solo `crtsh` registrado (descubre subdominios, aún no produce hallazgos); adaptadores `email_dns` y `hibp` disponibles por separado |
+| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, aún no produce hallazgos) e `internetdb` (resuelve IPs y produce hallazgos de `exposure`); adaptadores `email_dns` y `hibp` disponibles por separado |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -117,6 +117,8 @@ Warden-/
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
 │   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
+│   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
+│   │       ├── dns/            resolve-ipv4.ts — registros A vía dns.google (DoH)
 │   │       ├── email_dns/      provider.ts — consultas a Google Public DNS DoH
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido

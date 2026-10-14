@@ -280,16 +280,19 @@ export type Database = {
       finding_sources: {
         Row: {
           finding_id: string
+          last_seen_scan_id: string | null
           raw_reference: Json | null
           source_key: string
         }
         Insert: {
           finding_id: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key: string
         }
         Update: {
           finding_id?: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key?: string
         }
@@ -299,6 +302,13 @@ export type Database = {
             columns: ["finding_id"]
             isOneToOne: false
             referencedRelation: "findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finding_sources_last_seen_scan_id_fkey"
+            columns: ["last_seen_scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
             referencedColumns: ["id"]
           },
           {
