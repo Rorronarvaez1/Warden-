@@ -67,18 +67,20 @@ export interface ScanSummary {
   sourceFailures: boolean;
 }
 
-/** Estado de una fuente del dominio `exposure` y su resultado en el último escaneo. */
-export interface ExposureSource {
+/** Una fuente con colector implementado y su resultado en el último escaneo que la registró. */
+export interface SourceStatus {
   sourceKey: string;
   name: string;
+  riskDomain: RiskDomainKey | null;
   enabled: boolean;
   lastRun: {
     status: ScanSourceStatus;
     assetsReturned: number;
     findingsReturned: number;
+    /** Total previo al desglose (filas antiguas). */
+    itemsReturned: number;
     message: string | null;
-    /** IPs omitidas por pertenecer a un CDN (scan_sources.notices). */
-    cdnHosts: CdnHost[];
+    at: string;
   } | null;
 }
 
@@ -117,8 +119,29 @@ export interface ExposureHost {
 }
 
 export interface ExposureOverview {
-  source: ExposureSource | null;
+  source: SourceStatus | null;
   hosts: ExposureHost[];
+  /** IPs omitidas por pertenecer a un CDN en el último escaneo (scan_sources.notices). */
+  cdnHosts: CdnHost[];
+}
+
+/** Estado de SPF/DMARC/MX de un dominio según la última corrida de email_dns. */
+export interface EmailDomainStatus {
+  domain: string;
+  spf: 'present' | 'missing' | 'multiple' | 'unknown';
+  spfAllowsAll: boolean;
+  dmarc: 'present' | 'missing' | 'multiple' | 'unknown';
+  /** none | quarantine | reject, o null si no hay una política reconocida. */
+  dmarcPolicy: string | null;
+  /** Registros MX publicados; null si no se pudo consultar. */
+  mxCount: number | null;
+  nullMx: boolean;
+}
+
+export interface EmailOverview {
+  source: SourceStatus | null;
+  domains: EmailDomainStatus[];
+  findings: { id: string; title: string; severity: Severity }[];
 }
 
 export interface DashboardData {
@@ -131,6 +154,9 @@ export interface DashboardData {
   recentFindings: FindingRow[];
   trend: TrendPoint[];
   exposure: ExposureOverview;
+  email: EmailOverview;
+  /** Fuentes con colector implementado, para habilitarlas y ver su último resultado. */
+  sources: SourceStatus[];
   lastScan: ScanSummary | null;
 }
 

@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { setExposureSourceEnabled } from '@/app/(dashboard)/actions';
+import { setSourceEnabled } from '@/app/(dashboard)/actions';
 import styles from './dashboard.module.css';
 
-export function SourceToggle({ enabled }: { enabled: boolean }) {
+export function SourceToggle({ sourceKey, enabled }: { sourceKey: string; enabled: boolean }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function onClick() {
     setError(null);
     startTransition(async () => {
-      const result = await setExposureSourceEnabled(!enabled);
+      const result = await setSourceEnabled(sourceKey, !enabled);
       if (result.error) setError(result.error);
     });
   }

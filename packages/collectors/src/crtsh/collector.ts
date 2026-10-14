@@ -9,11 +9,13 @@ export const crtshCollector: Collector = {
   isNoContact: true,
 
   async collect(target, ctx) {
-    const url = `https://crt.sh/?q=${encodeURIComponent(`%.${target.primaryDomain}`)}&output=json`;
+    // `www.` es un host, no el dominio: con él solo se buscarían subdominios de www.
+    const domain = target.primaryDomain.toLowerCase().replace(/^www\./, '');
+    const url = `https://crt.sh/?q=${encodeURIComponent(`%.${domain}`)}&output=json`;
     const res = await fetch(url, { signal: ctx.signal });
     if (!res.ok) throw new Error(`crt.sh respondió ${res.status}`);
 
     const entries = (await res.json()) as CrtshEntry[];
-    return { assets: mapSubdomains(entries, target.primaryDomain), findings: [] };
+    return { assets: mapSubdomains(entries, domain), findings: [] };
   },
 };
