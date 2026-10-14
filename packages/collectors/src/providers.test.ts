@@ -34,6 +34,10 @@ describe('Proveedor de correos', () => {
     expect(() => decodeTxtRecord('"v=spf1" basura')).toThrow();
   });
 
+  it('acepta el TXT sin comillas que entrega la API JSON de dns.google', () => {
+    expect(decodeTxtRecord('v=DMARC1; p=none; rua=mailto:d@example.com')).toBe('v=DMARC1; p=none; rua=mailto:d@example.com');
+  });
+
   it('consulta solo el resolvedor público y distingue SERVFAIL de NXDOMAIN', async () => {
     const fetchMock = vi.fn(async (url: URL) => {
       expect(url.hostname).toBe('dns.google');
