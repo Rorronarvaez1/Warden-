@@ -8,7 +8,7 @@ export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
       <header className={styles.cardHeader}>
         <div>
           <h2 className={styles.cardTitle}>Riesgo por dominio</h2>
-          <p className={styles.cardHint}>Promedio de la cartera · peso en el KRI</p>
+          <p className={styles.cardHint}>Último escaneo · peso en el KRI</p>
         </div>
       </header>
 

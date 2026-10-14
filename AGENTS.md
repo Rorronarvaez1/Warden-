@@ -42,14 +42,14 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 |---|---|
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
-| Dashboard | 🟡 Esqueleto con **datos mock** (`apps/web/src/lib/mock-dashboard.ts`) |
+| Dashboard | 🟡 Vista de una sola empresa con **datos mock** (`apps/web/src/lib/mock-dashboard.ts`) |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
 | Colectores del pipeline | 🟡 Solo `crtsh` registrado (descubre subdominios, aún no produce hallazgos); adaptadores `email-dns` y `hibp` disponibles por separado |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Páginas Empresas / Hallazgos / Escaneos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
+| Páginas Activos / Hallazgos / Escaneos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor").
@@ -84,7 +84,7 @@ Warden-/
 │   │       │   ├── layout.tsx           Root layout (lang="es")
 │   │       │   └── globals.css          Tokens de color (--bg, --grade-a … --grade-f)
 │   │       ├── components/              Componentes UI + *.module.css
-│   │       │   └── dashboard/           Gauge, tablas, tendencia, etc.
+│   │       │   └── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
 │   │       ├── lib/
 │   │       │   ├── supabase/client.ts   Cliente para Client Components
 │   │       │   ├── supabase/server.ts   Cliente para Server Components / Route Handlers
@@ -259,7 +259,7 @@ Estilo de código:
 - Estilos con CSS Modules y los tokens de `globals.css` (`var(--surface)`, `var(--grade-c)`…). Tema oscuro. No agregar Tailwind ni librerías de UI sin acordarlo.
 - Next 16 usa `src/proxy.ts` (antes `middleware.ts`).
 - Route Handlers: valida el body, delega en una RPC con la sesión del usuario, traduce `42501` a 403.
-- Al reemplazar mocks, respeta las formas de `mock-dashboard.ts` (`CompanyRow`, `DomainScoreRow`, `FindingRow`, …) para no romper los componentes.
+- Al reemplazar mocks, respeta las formas de `mock-dashboard.ts` (`CompanyOverview`, `DomainScoreRow`, `AssetRow`, `FindingRow`, …) para no romper los componentes.
 
 ### Base de datos
 - **Nunca edites una migración ya aplicada**: crea una nueva.
