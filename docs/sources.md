@@ -22,7 +22,7 @@ Para agregar una fuente:
 | `abusech` | reputation | Por verificar | Feeds públicos de abuse.ch | Pendiente |
 | `dnstwist` | impersonation | Apache-2.0 | Resuelve dominios parecidos, no el dominio evaluado. Desactivar la descarga de páginas web. | Pendiente |
 | `shodan` | exposure | Propietaria, de pago | Datos pasivos, pero la API completa requiere suscripción | Bloqueado: se usa `internetdb` (gratuito) en su lugar |
-| `email_dns` | email | Registros DNS públicos; cliente implementado en Warden | Consulta únicamente `dns.google` por DoH; no conecta a HTTP/SMTP ni DNS autoritativo de la empresa | Adaptador implementado; sin registro en seed/pipeline |
+| `email_dns` | email | Registros DNS públicos; cliente implementado en Warden | Consulta únicamente `dns.google` por DoH; no conecta a HTTP/SMTP ni DNS autoritativo de la empresa | **Implementado** (SPF/DMARC/MX → hallazgos de `email`; deshabilitado por defecto) |
 | `hibp` | credentials (módulo; fuera del catálogo KRI) | Datos de brechas CC BY 4.0 con atribución; acceso por dominio requiere suscripción | Consulta únicamente HIBP para dominios previamente verificados; descarta aliases y no prueba contraseñas | Adaptador implementado; sin registro en seed/pipeline |
 
 Los adaptadores nuevos y sus restricciones se describen en [risk-analysis.md](risk-analysis.md).

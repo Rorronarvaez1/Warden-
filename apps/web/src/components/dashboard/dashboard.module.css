@@ -480,3 +480,77 @@
   font-size: 13px;
   color: var(--muted);
 }
+
+/* --- Historial de escaneos --- */
+
+/* Columnas fijas compactas; Fuentes toma el resto del ancho. */
+.historyTable th:nth-child(-n + 4),
+.historyTable td:nth-child(-n + 4) {
+  width: 1%;
+  padding-right: 28px;
+}
+
+.table tr.hasDetail td {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.table tr.detailRow td {
+  padding: 0 10px 12px;
+  color: var(--grade-f);
+  font-size: 12px;
+  white-space: normal;
+}
+
+.detailRow td > div {
+  padding: 6px 10px;
+  border-left: 2px solid var(--grade-f);
+  background: var(--surface-2);
+  border-radius: 0 4px 4px 0;
+}
+
+.detailRow td > div + div {
+  margin-top: 4px;
+}
+
+.detailRow strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* --- Aviso de IPs de CDN --- */
+
+.noticeTitle {
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.cdnList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* --- Fuentes de datos --- */
+
+.sourceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sourceItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.sourceItem:last-child {
+  border-bottom: none;
+}

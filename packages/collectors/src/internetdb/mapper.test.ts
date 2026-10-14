@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cveSeverity } from './cve-enrichment';
-import { mapExposure, type InternetDbHost } from './mapper';
+import { cdnNotices, mapExposure, type InternetDbHost } from './mapper';
 
 const observedAt = new Date('2026-10-14T12:00:00Z');
 const host = (ip: string, data: Partial<InternetDbHost>): InternetDbHost => ({
@@ -69,5 +69,42 @@ describe('mapExposure', () => {
       { ip: '104.16.0.1', resolvedFrom: ['www.example.com'], data: host('104.16.0.1', { ports: [8080], tags: ['cdn'] }) },
       { ip: '203.0.113.20', resolvedFrom: [], data: null },
     ], observedAt)).toEqual([]);
+  });
+});
+
+describe('cdnNotices', () => {
+  it('avisa las IPs de CDN que mapExposure omite, con el proveedor del CPE', () => {
+    const hosts = [
+      {
+        ip: '198.51.100.20',
+        resolvedFrom: ['www.example.com'],
+        data: host('198.51.100.20', {
+          ports: [21, 3389, 3389],
+          cpes: ['cpe:/a:imperva:incapsula'],
+          hostnames: ['www.example.com', 'otro-sitio.com'],
+          tags: ['cdn'],
+        }),
+      },
+      { ip: '203.0.113.10', resolvedFrom: [], data: host('203.0.113.10', { ports: [3389] }) },
+      { ip: '203.0.113.11', resolvedFrom: [], data: null },
+    ];
+
+    expect(mapExposure(hosts, observedAt).every((f) => f.assetValue === '203.0.113.10')).toBe(true);
+    expect(cdnNotices(hosts)).toEqual([{
+      kind: 'cdn',
+      subject: '198.51.100.20',
+      message: expect.stringContaining('(Imperva)'),
+      details: expect.objectContaining({
+        provider: 'Imperva',
+        resolvedFrom: ['www.example.com'],
+        portsObserved: 2,
+        sharedHostnames: 2,
+      }),
+    }]);
+  });
+
+  it('sin CPE reconocible el proveedor queda en null', () => {
+    const [notice] = cdnNotices([{ ip: '198.51.100.21', resolvedFrom: [], data: host('198.51.100.21', { tags: ['cdn'] }) }]);
+    expect(notice?.details.provider).toBeNull();
   });
 });

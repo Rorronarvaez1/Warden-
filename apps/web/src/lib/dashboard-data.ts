@@ -19,11 +19,14 @@ import {
   DOMAIN_LABELS,
   type AssetRow,
   type AttributionStatus,
+  type CdnHost,
   type DashboardData,
   type DomainScoreRow,
   type ExposureHost,
   type ExposureOverview,
-  type ExposureSource,
+  type EmailDomainStatus,
+  type EmailOverview,
+  type SourceStatus,
   type FindingRow,
   type ScanSummary,
   type TrendPoint,
@@ -33,6 +36,15 @@ import { createClient } from './supabase/server';
 
 /** Fuente del dominio `exposure` con colector implementado (packages/collectors/src/internetdb). */
 export const EXPOSURE_SOURCE_KEY = 'internetdb';
+export const EMAIL_SOURCE_KEY = 'email_dns';
+
+/**
+ * Fuentes con colector registrado en packages/collectors/src/registry.ts. La web no importa
+ * @warden/collectors (AGENTS.md §4), así que se mantiene a mano: habilitar una fuente sin
+ * colector no haría nada.
+ */
+export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, 'crtsh'] as const;
+export type ImplementedSource = (typeof IMPLEMENTED_SOURCES)[number];
 
 const RECENT_FINDINGS = 8;
 const TREND_POINTS = 12;
@@ -42,7 +54,7 @@ export type DashboardState =
   /** Aún no se registra la empresa a evaluar. */
   | { kind: 'no-company'; isAdmin: boolean };
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+export type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export async function loadDashboard(): Promise<DashboardState> {
   const supabase = await createClient();
@@ -58,21 +70,13 @@ export async function loadDashboard(): Promise<DashboardState> {
     throw new Error('Sesión requerida');
   }
 
-  const [{ data: isAdmin }, companyRes] = await Promise.all([
+  const [{ data: isAdmin }, company] = await Promise.all([
     supabase.rpc('is_admin'),
-    supabase
-      .from('companies')
-      .select('id, name, primary_domain')
-      .eq('status', 'active')
-      .order('created_at')
-      .limit(1)
-      .maybeSingle(),
+    loadActiveCompany(supabase),
   ]);
-  if (companyRes.error) throw companyRes.error;
-  const company = companyRes.data;
   if (!company) return { kind: 'no-company', isAdmin: isAdmin === true };
 
-  const [assets, openFindings, recent, scores, lastScan, schedule, weights, exposure] = await Promise.all([
+  const [assets, openFindings, recent, scores, lastScan, schedule, weights, sourceRuns] = await Promise.all([
     loadAssets(supabase, company.id),
     loadOpenFindingCounts(supabase, company.id),
     loadRecentFindings(supabase, company.id),
@@ -80,7 +84,11 @@ export async function loadDashboard(): Promise<DashboardState> {
     loadLastScan(supabase, company.id),
     supabase.from('schedules').select('next_run_at, is_active').eq('company_id', company.id).maybeSingle(),
     loadActiveWeights(supabase),
-    loadExposure(supabase, company.id),
+    loadSourceRuns(supabase, company.id),
+  ]);
+  const [exposure, email] = await Promise.all([
+    loadExposure(supabase, company.id, sourceRuns),
+    loadEmail(supabase, company.id, sourceRuns),
   ]);
 
   const latest = scores.latest;
@@ -118,9 +126,24 @@ export async function loadDashboard(): Promise<DashboardState> {
       recentFindings: recent,
       trend: scores.trend,
       exposure,
+      email,
+      sources: sourceRuns.statuses,
       lastScan: lastScan.latest,
     },
   };
+}
+
+/** La empresa evaluada: la activa más antigua (Warden evalúa a una sola empresa). */
+export async function loadActiveCompany(supabase: Supabase) {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name, primary_domain')
+    .eq('status', 'active')
+    .order('created_at')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 async function loadAssets(supabase: Supabase, companyId: string): Promise<AssetRow[]> {
@@ -227,7 +250,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
   const [latestRes, completedRes] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, status, created_at, finished_at, error_message')
+      .select('id, status, created_at, finished_at, error_message, scan_sources(status)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -251,48 +274,80 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
         createdAt: s.created_at,
         finishedAt: s.finished_at,
         errorMessage: s.error_message,
+        sourceFailures: s.scan_sources.some((r) => isSourceFailure(r.status)),
       }
     : null;
   return { latest, lastCompletedAt: completedRes.data?.finished_at ?? null };
 }
 
-/** Hallazgos abiertos de exposición agrupados por IP, más el estado de la fuente. */
-async function loadExposure(supabase: Supabase, companyId: string): Promise<ExposureOverview> {
-  const [findingsRes, sourceRes, lastRunRes] = await Promise.all([
+interface SourceRuns {
+  statuses: SourceStatus[];
+  /** scan_sources.notices de la última corrida de cada fuente. */
+  notices: Map<string, Json>;
+}
+
+/** Estado de cada fuente implementada y su resultado en el último escaneo que la registró. */
+async function loadSourceRuns(supabase: Supabase, companyId: string): Promise<SourceRuns> {
+  const [sourcesRes, runsRes] = await Promise.all([
     supabase
-      .from('findings')
-      .select('id, severity, confidence, observed_at, evidence, risk_domains!inner(key)')
-      .eq('company_id', companyId)
-      .eq('status', 'open')
-      .eq('risk_domains.key', 'exposure')
-      .limit(2000),
-    supabase.from('sources').select('source_key, name, is_enabled').eq('source_key', EXPOSURE_SOURCE_KEY).maybeSingle(),
-    // Resultado de la fuente en el escaneo más reciente que la registró.
+      .from('sources')
+      .select('source_key, name, is_enabled, risk_domains(key)')
+      .in('source_key', [...IMPLEMENTED_SOURCES]),
+    // Cada escaneo registra todas las fuentes, así que la última corrida está entre las recientes.
     supabase
       .from('scan_sources')
-      .select('status, items_returned, message, scans!inner(company_id, created_at)')
-      .eq('source_key', EXPOSURE_SOURCE_KEY)
+      .select(
+        'source_key, status, items_returned, assets_returned, findings_returned, message, notices, scans!inner(company_id, created_at)',
+      )
+      .in('source_key', [...IMPLEMENTED_SOURCES])
       .eq('scans.company_id', companyId)
       .order('scans(created_at)', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(IMPLEMENTED_SOURCES.length * 5),
   ]);
+  if (sourcesRes.error) throw sourcesRes.error;
+  if (runsRes.error) throw runsRes.error;
+
+  const latestRun = new Map<string, (typeof runsRes.data)[number]>();
+  for (const run of runsRes.data) if (!latestRun.has(run.source_key)) latestRun.set(run.source_key, run);
+
+  const statuses = IMPLEMENTED_SOURCES.flatMap((key): SourceStatus[] => {
+    const s = sourcesRes.data.find((row) => row.source_key === key);
+    if (!s) return [];
+    const run = latestRun.get(key);
+    const domainKey = s.risk_domains?.key;
+    return [{
+      sourceKey: key,
+      name: s.name,
+      riskDomain: domainKey && (RISK_DOMAIN_KEYS as readonly string[]).includes(domainKey) ? (domainKey as RiskDomainKey) : null,
+      enabled: s.is_enabled,
+      lastRun: run
+        ? {
+            status: oneOf(SCAN_SOURCE_STATUSES, run.status, 'failed'),
+            assetsReturned: run.assets_returned,
+            findingsReturned: run.findings_returned,
+            itemsReturned: run.items_returned,
+            message: run.message,
+            at: run.scans.created_at,
+          }
+        : null,
+    }];
+  });
+  return { statuses, notices: new Map([...latestRun].map(([key, run]) => [key, run.notices])) };
+}
+
+/** Hallazgos abiertos de exposición agrupados por IP, más el estado de la fuente. */
+async function loadExposure(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ExposureOverview> {
+  const findingsRes = await supabase
+    .from('findings')
+    .select('id, severity, confidence, observed_at, evidence, risk_domains!inner(key)')
+    .eq('company_id', companyId)
+    .eq('status', 'open')
+    .eq('risk_domains.key', 'exposure')
+    .limit(2000);
   if (findingsRes.error) throw findingsRes.error;
 
-  const source: ExposureSource | null = sourceRes.data
-    ? {
-        sourceKey: sourceRes.data.source_key,
-        name: sourceRes.data.name,
-        enabled: sourceRes.data.is_enabled,
-        lastRun: lastRunRes.data
-          ? {
-              status: oneOf(SCAN_SOURCE_STATUSES, lastRunRes.data.status, 'failed'),
-              itemsReturned: lastRunRes.data.items_returned,
-              message: lastRunRes.data.message,
-            }
-          : null,
-      }
-    : null;
+  const source = runs.statuses.find((s) => s.sourceKey === EXPOSURE_SOURCE_KEY) ?? null;
+  const cdnHosts = parseCdnHosts(runs.notices.get(EXPOSURE_SOURCE_KEY) ?? []);
 
   const hosts = new Map<string, ExposureHost>();
   for (const f of findingsRes.data) {
@@ -345,10 +400,107 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
 
   return {
     source,
+    cdnHosts,
     hosts: [...hosts.values()].sort(
       (a, b) => severityRank(a.worstSeverity) - severityRank(b.worstSeverity) || a.ip.localeCompare(b.ip),
     ),
   };
+}
+
+/** Estado de SPF/DMARC/MX por dominio (avisos de email_dns) y hallazgos abiertos de correo. */
+async function loadEmail(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<EmailOverview> {
+  const { data, error } = await supabase
+    .from('findings')
+    .select('id, title, severity, risk_domains!inner(key)')
+    .eq('company_id', companyId)
+    .eq('status', 'open')
+    .eq('risk_domains.key', 'email')
+    .limit(200);
+  if (error) throw error;
+
+  return {
+    source: runs.statuses.find((s) => s.sourceKey === EMAIL_SOURCE_KEY) ?? null,
+    domains: parseEmailDomains(runs.notices.get(EMAIL_SOURCE_KEY) ?? []),
+    findings: data
+      .map((f) => ({ id: f.id, title: f.title, severity: oneOf(SEVERITIES, f.severity, 'info') }))
+      .sort((a, b) => severityRank(a.severity) - severityRank(b.severity)),
+  };
+}
+
+/** Avisos 'observation' de email_dns (ruleId/state del analizador de @warden/risk-analysis). */
+export function parseEmailDomains(notices: Json): EmailDomainStatus[] {
+  if (!Array.isArray(notices)) return [];
+  const domains = new Map<string, EmailDomainStatus>();
+  for (const n of notices) {
+    const notice = asRecord(n);
+    if (notice.kind !== 'observation') continue;
+    const d = asRecord(notice.details ?? null);
+    if (typeof d.domain !== 'string' || typeof d.ruleId !== 'string') continue;
+    let status = domains.get(d.domain);
+    if (!status) {
+      status = {
+        domain: d.domain,
+        spf: 'unknown',
+        spfAllowsAll: false,
+        dmarc: 'unknown',
+        dmarcPolicy: null,
+        mxCount: null,
+        nullMx: false,
+      };
+      domains.set(d.domain, status);
+    }
+    const observed = d.state === 'observed';
+    switch (d.ruleId) {
+      case 'email.spf.records':
+        status.spf = observed ? (status.spf === 'multiple' ? 'multiple' : 'present') : d.state === 'absent' ? 'missing' : 'unknown';
+        break;
+      case 'email.spf.multiple-records':
+        if (observed) status.spf = 'multiple';
+        break;
+      case 'email.spf.allows-all':
+        status.spfAllowsAll = observed;
+        break;
+      case 'email.dmarc.records':
+        status.dmarc = observed ? (status.dmarc === 'multiple' ? 'multiple' : 'present') : d.state === 'absent' ? 'missing' : 'unknown';
+        break;
+      case 'email.dmarc.multiple-records':
+        if (observed) status.dmarc = 'multiple';
+        break;
+      case 'email.dmarc.policy':
+        status.dmarcPolicy = observed && typeof d.policy === 'string' ? d.policy : null;
+        break;
+      case 'email.mx.records':
+        status.mxCount = d.state === 'unknown' ? null : typeof d.recordCount === 'number' ? d.recordCount : 0;
+        break;
+      case 'email.mx.null':
+        status.nullMx = observed;
+        break;
+    }
+  }
+  return [...domains.values()];
+}
+
+/** Una fuente que falló o fue bloqueada no aportó datos, aunque el escaneo terminara. */
+export function isSourceFailure(status: string): boolean {
+  return status === 'failed' || status === 'blocked';
+}
+
+/** Avisos de tipo 'cdn' que guarda el colector internetdb en scan_sources.notices. */
+export function parseCdnHosts(notices: Json): CdnHost[] {
+  if (!Array.isArray(notices)) return [];
+  return notices.flatMap((n) => {
+    const notice = asRecord(n);
+    if (notice.kind !== 'cdn') return [];
+    const d = asRecord(notice.details ?? null);
+    const ip = typeof d.ip === 'string' ? d.ip : typeof notice.subject === 'string' ? notice.subject : null;
+    if (!ip) return [];
+    return [{
+      ip,
+      provider: typeof d.provider === 'string' ? d.provider : null,
+      resolvedFrom: stringArray(d.resolvedFrom),
+      portsObserved: typeof d.portsObserved === 'number' ? d.portsObserved : 0,
+    }];
+  });
 }
 
 function severityRank(s: Severity): number {
@@ -359,7 +511,8 @@ function asGrade(value: string): Grade {
   return oneOf(GRADES, value.trim(), 'F');
 }
 
-function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
+/** Valor de un CHECK constraint de texto; `fallback` si la BD devolviera algo inesperado. */
+export function oneOf<T extends string>(allowed: readonly T[], value: string, fallback: T): T {
   return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 

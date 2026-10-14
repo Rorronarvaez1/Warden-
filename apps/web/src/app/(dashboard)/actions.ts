@@ -5,7 +5,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { EXPOSURE_SOURCE_KEY } from '@/lib/dashboard-data';
+import { IMPLEMENTED_SOURCES } from '@/lib/dashboard-data';
 
 export interface ActionResult {
   error?: string;
@@ -76,13 +76,16 @@ export async function setAssetStatus(
   return {};
 }
 
-/** Solo admin (política "admins manage" de sources). */
-export async function setExposureSourceEnabled(enabled: boolean): Promise<ActionResult> {
+/** Solo admin (política "admins manage" de sources) y solo fuentes con colector implementado. */
+export async function setSourceEnabled(sourceKey: string, enabled: boolean): Promise<ActionResult> {
+  if (!(IMPLEMENTED_SOURCES as readonly string[]).includes(sourceKey)) {
+    return { error: 'Esa fuente no tiene colector implementado' };
+  }
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('sources')
     .update({ is_enabled: enabled })
-    .eq('source_key', EXPOSURE_SOURCE_KEY)
+    .eq('source_key', sourceKey)
     .select('source_key');
   if (error) return { error: permissionMessage(error) };
   if (data.length === 0) return { error: 'Solo un admin puede habilitar fuentes' };
@@ -97,6 +100,7 @@ export async function requestScan(companyId: string): Promise<ActionResult> {
   if (error) return { error: permissionMessage(error) };
 
   revalidatePath('/');
+  revalidatePath('/scans');
   return {};
 }
 

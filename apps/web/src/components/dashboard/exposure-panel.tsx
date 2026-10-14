@@ -1,24 +1,10 @@
-import type { ScanSourceStatus, Severity } from '@warden/shared';
+import type { Severity } from '@warden/shared';
 import type { ReactNode } from 'react';
 import type { ExposureOverview } from '@/lib/dashboard-types';
 import styles from './dashboard.module.css';
 import { formatDate } from './format';
 import { SEVERITY_COLORS, SeverityPill } from './grade-badge';
-import { SourceToggle } from './source-toggle';
-
-const RUN_LABELS: Record<ScanSourceStatus, string> = {
-  ok: 'Último escaneo correcto',
-  failed: 'Falló en el último escaneo',
-  skipped: 'Omitida en el último escaneo',
-  blocked: 'Bloqueada por la compuerta no-contact',
-};
-
-const RUN_COLORS: Record<ScanSourceStatus, string> = {
-  ok: 'var(--grade-a)',
-  failed: 'var(--grade-f)',
-  skipped: 'var(--muted)',
-  blocked: 'var(--grade-f)',
-};
+import { SourceNotices, SourceRunActions } from './source-header';
 
 const MAX_CVES = 4;
 
@@ -26,6 +12,7 @@ export function ExposurePanel({ exposure, isAdmin }: { exposure: ExposureOvervie
   const { source, hosts } = exposure;
   const services = hosts.reduce((n, h) => n + h.services.length, 0);
   const cves = hosts.reduce((n, h) => n + h.cves.length, 0);
+  const { cdnHosts } = exposure;
 
   return (
     <section className={styles.card}>
@@ -37,41 +24,34 @@ export function ExposurePanel({ exposure, isAdmin }: { exposure: ExposureOvervie
             Warden no contacta tus servidores.
           </p>
         </div>
-        {source && (
-          <span className={styles.inlineActions}>
-            {source.lastRun && (
-              <span
-                className={styles.chip}
-                style={{ color: RUN_COLORS[source.lastRun.status] }}
-                title={source.lastRun.message ?? undefined}
-              >
-                {RUN_LABELS[source.lastRun.status]}
-              </span>
-            )}
-            {isAdmin && <SourceToggle enabled={source.enabled} />}
-          </span>
-        )}
+        {source && <SourceRunActions source={source} isAdmin={isAdmin} />}
       </header>
 
-      {!source ? (
-        <p className={styles.notice}>La fuente de exposición no está registrada en la BD (¿falta el seed?).</p>
-      ) : !source.enabled ? (
-        <p className={styles.notice}>
-          La fuente está deshabilitada.{' '}
-          {isAdmin ? 'Habilítala y lanza un escaneo.' : 'Pide a un admin que la habilite.'} Su uso gratuito es
-          solo no comercial.
-        </p>
-      ) : null}
+      <SourceNotices source={source} isAdmin={isAdmin} disabledHint="Su uso gratuito es solo no comercial." />
 
-      {source?.lastRun?.status === 'failed' && source.lastRun.message && (
-        <p className={styles.notice} style={{ color: 'var(--grade-f)' }}>
-          {source.lastRun.message}
-        </p>
+      {cdnHosts.length > 0 && (
+        <div className={styles.notice}>
+          <p className={styles.noticeTitle}>
+            {cdnHosts.length === 1 ? '1 IP detrás de un CDN' : `${cdnHosts.length} IPs detrás de un CDN`}: sus
+            puertos y CVE son del proveedor y no se cuentan como hallazgos de la empresa.
+          </p>
+          <ul className={styles.cdnList}>
+            {cdnHosts.map((c) => (
+              <li key={c.ip}>
+                <strong>{c.ip}</strong>
+                {c.resolvedFrom.length > 0 && ` (${c.resolvedFrom.join(', ')})`} · {c.provider ?? 'CDN'} ·{' '}
+                {c.portsObserved} puertos del proveedor omitidos
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {hosts.length === 0 ? (
         <p className={styles.empty}>
-          {source?.lastRun?.status === 'ok'
+          {source?.lastRun?.status === 'ok' && cdnHosts.length > 0
+            ? 'Sin servidores propios observados: confirma subdominios que no pasen por el CDN (correo, VPN, portales) para medir su exposición.'
+            : source?.lastRun?.status === 'ok'
             ? 'Sin servicios expuestos observados. Ausencia de datos no garantiza ausencia de riesgo.'
             : source?.lastRun?.status === 'failed'
               ? 'Sin datos: la fuente falló. Revisa el error y vuelve a escanear.'

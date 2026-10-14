@@ -33,7 +33,7 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 | key | Nombre | Fuente prevista |
 |---|---|---|
 | `exposure` | Exposición de servicios | Shodan InternetDB ✅ (SpiderFoot pasivo previsto) |
-| `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público (adaptador implementado); checkdmarc previsto |
+| `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público `email_dns` ✅ (SPF/DMARC/MX); checkdmarc previsto |
 | `certs` | Certificados (CT logs) | crt.sh ✅ |
 | `secrets` | Secretos filtrados en repos públicos | gitleaks |
 | `reputation` | Listas de malware/phishing/botnets | abuse.ch |
@@ -53,11 +53,12 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, panel de exposición, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, aún no produce hallazgos) e `internetdb` (resuelve IPs y produce hallazgos de `exposure`); adaptadores `email_dns` y `hibp` disponibles por separado |
+| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, sin hallazgos), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN) y `email_dns` (SPF/DMARC/MX → hallazgos de `email`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Páginas Activos / Hallazgos / Escaneos / Reportes | 🔴 Pendientes (ya están en la `TopNav`); Configuración ya enlaza a Usuarios |
+| Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
+| Páginas Activos / Hallazgos / Reportes | 🔴 Pendientes (ya están en la `TopNav`); Configuración ya enlaza a Usuarios |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
@@ -122,7 +123,7 @@ Warden-/
 │   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
 │   │       ├── dns/            resolve-ipv4.ts — registros A vía dns.google (DoH)
-│   │       ├── email_dns/      provider.ts — consultas a Google Public DNS DoH
+│   │       ├── email_dns/      provider.ts (DoH) + collector.ts/mapper.ts — observaciones de correo → hallazgos
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido
 │   │       └── providers.test.ts
@@ -169,8 +170,8 @@ Reglas:
 - Los paquetes exportan TS fuente vía `"exports": { ".": "./src/index.ts" }`. Si la web necesita un paquete nuevo, añádelo a `transpilePackages` en `apps/web/next.config.ts`.
 - `@warden/risk-analysis` contiene contratos/registro/ejecutor y módulos `email` y `credentials`.
   `credentials` no es un valor de `RiskDomainKey` ni reemplaza `secrets`; su incorporación al KRI
-  requiere una decisión explícita y migraciones. Los proveedores `email_dns` y `hibp` están
-  exportados por collectors pero no se registran en `collectAll` ni en el seed todavía.
+  requiere una decisión explícita y migraciones. `email_dns` está registrado en `collectAll` y en el
+  seed (vía `email_dns/collector.ts`); `hibp` sigue sin registrarse.
 
 ---
 
@@ -291,7 +292,7 @@ Estilo de código:
    - `collector.ts` que exporta un `Collector` (`isNoContact: true`, respeta `ctx.signal`).
    - `mapper.ts` con la transformación pura de la respuesta → `DiscoveredAsset[]` / `NormalizedFinding[]`.
    - `mapper.test.ts` con vitest.
-3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
+3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. Lo observado que no es hallazgo (p. ej. IPs de CDN omitidas) va en `CollectorResult.notices`; el worker lo guarda en `scan_sources.notices` junto con `assets_returned` / `findings_returned`. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
 4. Registrarlo en `packages/collectors/src/registry.ts`.
 5. Insertarlo en `supabase/seed.sql` (deshabilitado por defecto; un admin lo habilita).
 6. Si requiere API key: variable en `.env.example` (sección worker) + fila en `source_credentials` con el `secret_ref`.
@@ -382,9 +383,13 @@ límite de tamaño). Contratos, ejemplo de uso y limitaciones: [docs/risk-analys
 
 Reglas para trabajar con estos módulos:
 
-- **Aún no están integrados:** `runScan`, `collectAll`, el seed y la persistencia no los usan.
-  No afirmar que están activos.
-- **Sin scoring:** reportan observaciones (`observed | absent | unknown`) con cobertura `partial`,
+- **Integración:** `email_dns` entra al pipeline como `Collector` (`email_dns/collector.ts`): llama
+  al proveedor y a `emailModule.analyze` y convierte lo negativo en hallazgos de `email` con
+  severidades marcadas como SUPUESTO en `mapper.ts`; todas las observaciones van a
+  `scan_sources.notices`. Si una consulta SPF/DMARC/MX falla, la fuente queda `failed`.
+  `www.` se quita del dominio principal (es un host, no un dominio de correo). `hibp` y el
+  módulo `credentials` siguen sin integrarse.
+- **Sin scoring:** los analizadores reportan observaciones (`observed | absent | unknown`) con cobertura `partial`,
   sin puntajes, letras ni severidades. Un fallo de consulta nunca significa ausencia de riesgo.
 - **`credentials` no es un `RiskDomainKey`** ni reemplaza `secrets`; su resultado lleva
   `riskDomain: null` hasta decidir cómo entra al KRI (ver [docs/sources.md](docs/sources.md)).
@@ -393,7 +398,7 @@ Reglas para trabajar con estos módulos:
 - **HIBP:** requiere `HIBP_API_KEY` (solo en el worker) y dominios verificados por la empresa.
   Warden no inicia verificaciones. Conservar y mostrar la atribución a HIBP (CC BY 4.0) en
   cualquier interfaz o reporte. Nunca guardar aliases, correos ni contraseñas.
-- **Al integrarlos al worker:** registrar las fuentes en el seed deshabilitadas, cargar las
+- **Al integrar `hibp`:** registrar la fuente en el seed deshabilitada, cargar las
   políticas desde `sources` (nunca desde el navegador), mantener las tres capas no-contact y
   agregar `@warden/risk-analysis` como dependencia explícita del worker si se importa directo.
   Hoy hay dos contratos paralelos (`Collector` y `EvidenceProvider`); conviene unificarlos o
