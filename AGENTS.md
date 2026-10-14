@@ -49,6 +49,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 |---|---|
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
+| Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, panel de exposición, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
@@ -56,7 +57,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Páginas Activos / Hallazgos / Escaneos / Reportes / Configuración | 🔴 Pendientes (ya están en la `TopNav`) |
+| Páginas Activos / Hallazgos / Escaneos / Reportes | 🔴 Pendientes (ya están en la `TopNav`); Configuración ya enlaza a Usuarios |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
@@ -234,6 +235,7 @@ Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_sc
 2. **Dos llaves de Supabase, dos mundos.**
    - `apps/web`: solo `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` + sesión del usuario → todo pasa por RLS.
    - `apps/worker`: `SUPABASE_SECRET_KEY` (service role, omite RLS). **Nunca** debe aparecer en `apps/web`, en variables `NEXT_PUBLIC_*`, ni en Vercel.
+   - Excepción para administración **local**: `supabase/functions/manage-users` recibe `SUPABASE_SERVICE_ROLE_KEY` del runtime de Supabase y usa `auth.admin`. Exige JWT válido con emisor local, admin activo y `WARDEN_LOCAL_USER_ADMIN_ENABLED=true`. No desplegarla en Cloud ni copiar su llave a la web. Ver `docs/local-users.md`.
 3. **RLS siempre activo.** Toda tabla nueva necesita `enable row level security` + políticas, siguiendo el patrón de `20261001000800_enable_rls_policies.sql`, **y GRANTs explícitos** a `authenticated`/`service_role` (ver `20261014000200_grant_data_api_privileges.sql`): Supabase ya no expone automáticamente las tablas nuevas de `public` a la Data API. Los analistas solo pueden actualizar `status`, `status_reason`, `status_by` de `findings`.
 4. **Funciones `security definer`** llevan `set search_path = ''`, nombres calificados (`public.x`) y `revoke/grant execute` explícitos.
 5. **IA:** todo contexto pasa por `redact()` antes de ir a OpenRouter. La evidencia cruda (secretos, emails) nunca sale de Warden.
