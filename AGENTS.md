@@ -355,7 +355,12 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 
 ## 10. Flujo de trabajo con Git y CI
 
-- Rama principal: `main`. Trabaja en ramas `feat/...` o `fix/...` y abre PR.
+- Flujo de ramas: `feat/...` / `fix/...` → `dev` → `staging` → `main`.
+  - `dev` (rama predeterminada): integración. Los PR de trabajo apuntan aquí.
+  - `staging`: preproducción. Solo recibe PR desde `dev`.
+  - `main`: producción. Solo recibe PR desde `staging`.
+- Las tres ramas están protegidas con rulesets: sin push directo, sin force push ni borrado, y el PR exige que pasen los checks `check`, `migrations` y `flujo-ramas`. `flujo-ramas` (`.github/workflows/branch-flow.yml`) rechaza PR que se salten el flujo.
+- Los PR de promoción (`dev → staging`, `staging → main`) se fusionan con **merge commit**, nunca squash ni rebase: así las ramas comparten historia y no reaparecen conflictos.
 - CI (`.github/workflows/ci.yml`) corre `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test` y levanta Supabase para validar migraciones + seed. **Antes de abrir un PR, `pnpm typecheck` y `pnpm test` deben pasar localmente.**
 - Si cambias dependencias, commitea `pnpm-lock.yaml`.
 - Commits en español, en imperativo y descriptivos (p. ej. "Agrega colector de checkdmarc").
