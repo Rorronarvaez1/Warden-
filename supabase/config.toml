@@ -386,8 +386,10 @@ deno_version = 2
 # La función valida el JWT con Auth y consulta el perfil activo en cada operación.
 verify_jwt = false
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Solo aplica a Supabase local: `supabase start` sirve manage-users ya habilitada.
+# En Cloud no existe este archivo, así que la función queda deshabilitada.
+[edge_runtime.secrets]
+WARDEN_LOCAL_USER_ADMIN_ENABLED = "true"
 
 [analytics]
 enabled = true
