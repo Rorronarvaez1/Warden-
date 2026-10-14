@@ -4,7 +4,8 @@ import { emailDnsCollector, emailDomains } from './collector';
 
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-const txt = (value: string) => ({ type: 16, data: `"${value}"` });
+// Formato real de la API JSON de dns.google: TXT sin comillas y con fragmentos ya unidos.
+const txt = (value: string) => ({ type: 16, data: value });
 afterEach(() => vi.unstubAllGlobals());
 
 /** Simula dns.google con registros por nombre y tipo; lo no definido responde NXDOMAIN. */
@@ -53,6 +54,16 @@ describe('emailDnsCollector', () => {
     }));
     // Solo SPF, DMARC y MX: sin selectores no se consulta DKIM.
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('también acepta TXT en formato de zona (con comillas y fragmentos)', async () => {
+    stubDns({
+      'example.com TXT': [{ type: 16, data: '"v=spf1 include:_spf.example.net " "-all"' }],
+      '_dmarc.example.com TXT': [{ type: 16, data: '"v=DMARC1; p=reject"' }],
+      'example.com MX': [{ type: 15, data: '10 mx.example.com.' }],
+    });
+    const result = await emailDnsCollector.collect(target('example.com'), ctx);
+    expect(result.findings).toEqual([]);
   });
 
   it('reporta SPF y DMARC ausentes', async () => {

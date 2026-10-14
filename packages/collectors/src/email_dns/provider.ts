@@ -7,8 +7,14 @@ const responseSchema = z.object({
   Answer: z.array(z.object({ type: z.number().int(), data: z.string() })).optional(),
 });
 
-/** Une fragmentos de un único TXT, conservando la separación entre registros. */
+/**
+ * Une fragmentos de un único TXT, conservando la separación entre registros.
+ * La API JSON de dns.google entrega el texto ya decodificado y sin comillas
+ * (`v=spf1 -all`, fragmentos ya unidos); otros resolvedores usan el formato de zona
+ * con comillas (`"v=spf1 " "-all"`). Solo el segundo necesita decodificarse.
+ */
 export function decodeTxtRecord(value: string): string {
+  if (!value.startsWith('"')) return value;
   const parts = value.match(/"(?:\\.|[^"\\])*"/g);
   if (!parts || parts.join('').replace(/\s/g, '') !== value.replace(/\s/g, '')) {
     throw new Error('La fuente devolvió un registro TXT no reconocido.');
