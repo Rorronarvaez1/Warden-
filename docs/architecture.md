@@ -27,7 +27,8 @@
 - La web usa solo la llave publicable y la sesión del usuario, así que todo pasa por RLS.
 - El worker usa la llave secreta (service role). Esa llave nunca debe llegar a Vercel.
 - `redact()` limpia el contexto antes de enviarlo a OpenRouter; la evidencia cruda no sale de Warden.
-- Los usuarios nuevos se crean con `is_active = false`. Un admin los habilita desde la tabla `profiles`.
+- Los usuarios nuevos se crean con `is_active = false`. Un admin los habilita desde `/settings/users` en desarrollo local.
+- La función local `manage-users` usa las APIs de Supabase Auth con una llave administrativa inyectada por su runtime. Verifica el JWT, su emisor local y el perfil admin activo antes de operar. Esa llave no llega a la web. Preparación y límites: [local-users.md](local-users.md).
 
 ## Análisis modular de evidencia
 

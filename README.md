@@ -20,6 +20,8 @@ docs/               Arquitectura, ADRs, modelo de scoring, fuentes, diagrama ER
 
 Más detalle en [docs/architecture.md](docs/architecture.md).
 
+Administración de usuarios locales: [docs/local-users.md](docs/local-users.md).
+
 ## Desarrollo local
 
 Guía paso a paso para correr Warden en tu máquina. Los comandos están en PowerShell (Windows); en macOS/Linux usa `cp` en lugar de `Copy-Item`.
