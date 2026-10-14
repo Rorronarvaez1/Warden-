@@ -104,6 +104,41 @@ export async function requestScan(companyId: string): Promise<ActionResult> {
   return {};
 }
 
+const TRIAGE_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
+type TriageStatus = (typeof TRIAGE_STATUSES)[number];
+
+/**
+ * Clasifica un hallazgo. RLS solo deja cambiar status, status_reason y status_by, y exige
+ * status_by = usuario actual: así el worker distingue lo cerrado por un analista (no lo
+ * reabre) de lo que él mismo resolvió.
+ */
+export async function triageFinding(findingId: string, status: TriageStatus, reason: string): Promise<ActionResult> {
+  if (!(TRIAGE_STATUSES as readonly string[]).includes(status)) return { error: 'Estado inválido' };
+  const trimmed = reason.trim().slice(0, 500);
+  // Descartar o aceptar un riesgo sin explicar por qué no deja rastro útil para auditoría.
+  if ((status === 'false_positive' || status === 'accepted') && !trimmed) {
+    return { error: 'Explica el motivo para marcarlo así' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Sesión expirada' };
+
+  const { data, error } = await supabase
+    .from('findings')
+    .update({ status, status_reason: trimmed || null, status_by: user.id })
+    .eq('id', findingId)
+    .select('id');
+  if (error) return { error: permissionMessage(error) };
+  if (data.length === 0) return { error: 'No tienes permiso para clasificar este hallazgo' };
+
+  revalidatePath('/findings');
+  revalidatePath('/');
+  return {};
+}
+
 function permissionMessage(error: { code?: string; message: string }): string {
   return error.code === '42501' ? 'No tienes permiso para esta acción' : error.message;
 }
