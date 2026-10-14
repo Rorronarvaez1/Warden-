@@ -19,6 +19,7 @@ import {
   DOMAIN_LABELS,
   type AssetRow,
   type AttributionStatus,
+  type CdnHost,
   type DashboardData,
   type DomainScoreRow,
   type ExposureHost,
@@ -232,7 +233,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
   const [latestRes, completedRes] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, status, created_at, finished_at, error_message')
+      .select('id, status, created_at, finished_at, error_message, scan_sources(status)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -256,6 +257,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
         createdAt: s.created_at,
         finishedAt: s.finished_at,
         errorMessage: s.error_message,
+        sourceFailures: s.scan_sources.some((r) => isSourceFailure(r.status)),
       }
     : null;
   return { latest, lastCompletedAt: completedRes.data?.finished_at ?? null };
@@ -275,7 +277,7 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
     // Resultado de la fuente en el escaneo más reciente que la registró.
     supabase
       .from('scan_sources')
-      .select('status, items_returned, message, scans!inner(company_id, created_at)')
+      .select('status, assets_returned, findings_returned, message, notices, scans!inner(company_id, created_at)')
       .eq('source_key', EXPOSURE_SOURCE_KEY)
       .eq('scans.company_id', companyId)
       .order('scans(created_at)', { ascending: false })
@@ -292,8 +294,10 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
         lastRun: lastRunRes.data
           ? {
               status: oneOf(SCAN_SOURCE_STATUSES, lastRunRes.data.status, 'failed'),
-              itemsReturned: lastRunRes.data.items_returned,
+              assetsReturned: lastRunRes.data.assets_returned,
+              findingsReturned: lastRunRes.data.findings_returned,
               message: lastRunRes.data.message,
+              cdnHosts: parseCdnHosts(lastRunRes.data.notices),
             }
           : null,
       }
@@ -354,6 +358,29 @@ async function loadExposure(supabase: Supabase, companyId: string): Promise<Expo
       (a, b) => severityRank(a.worstSeverity) - severityRank(b.worstSeverity) || a.ip.localeCompare(b.ip),
     ),
   };
+}
+
+/** Una fuente que falló o fue bloqueada no aportó datos, aunque el escaneo terminara. */
+export function isSourceFailure(status: string): boolean {
+  return status === 'failed' || status === 'blocked';
+}
+
+/** Avisos de tipo 'cdn' que guarda el colector internetdb en scan_sources.notices. */
+export function parseCdnHosts(notices: Json): CdnHost[] {
+  if (!Array.isArray(notices)) return [];
+  return notices.flatMap((n) => {
+    const notice = asRecord(n);
+    if (notice.kind !== 'cdn') return [];
+    const d = asRecord(notice.details ?? null);
+    const ip = typeof d.ip === 'string' ? d.ip : typeof notice.subject === 'string' ? notice.subject : null;
+    if (!ip) return [];
+    return [{
+      ip,
+      provider: typeof d.provider === 'string' ? d.provider : null,
+      resolvedFrom: stringArray(d.resolvedFrom),
+      portsObserved: typeof d.portsObserved === 'number' ? d.portsObserved : 0,
+    }];
+  });
 }
 
 function severityRank(s: Severity): number {

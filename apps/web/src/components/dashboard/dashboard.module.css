@@ -517,3 +517,18 @@
   color: var(--text);
   font-weight: 600;
 }
+
+/* --- Aviso de IPs de CDN --- */
+
+.noticeTitle {
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.cdnList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

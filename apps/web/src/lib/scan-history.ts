@@ -2,7 +2,7 @@
 // (tablas scans + scan_sources), para diagnosticar fallos sin ir a la BD.
 
 import { SCAN_SOURCE_STATUSES, SCAN_STATUSES, type ScanSourceStatus, type ScanStatus } from '@warden/shared';
-import { loadActiveCompany, oneOf } from './dashboard-data';
+import { isSourceFailure, loadActiveCompany, oneOf, parseCdnHosts } from './dashboard-data';
 import type { ScanSummary } from './dashboard-types';
 import { createClient } from './supabase/server';
 
@@ -12,7 +12,12 @@ export interface ScanSourceRun {
   sourceKey: string;
   name: string;
   status: ScanSourceStatus;
+  /** Total previo a la migración del desglose; sirve para filas antiguas. */
   itemsReturned: number;
+  assetsReturned: number;
+  findingsReturned: number;
+  /** IPs omitidas por ser de un CDN. */
+  cdnCount: number;
   latencyMs: number | null;
   message: string | null;
 }
@@ -48,7 +53,7 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
     supabase
       .from('scans')
       .select(
-        'id, status, trigger_type, created_at, started_at, finished_at, error_message, scan_sources(source_key, status, items_returned, latency_ms, message)',
+        'id, status, trigger_type, created_at, started_at, finished_at, error_message, scan_sources(source_key, status, items_returned, assets_returned, findings_returned, notices, latency_ms, message)',
       )
       .eq('company_id', company.id)
       .order('created_at', { ascending: false })
@@ -75,6 +80,9 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
           name: sourceName.get(r.source_key) ?? r.source_key,
           status: oneOf(SCAN_SOURCE_STATUSES, r.status, 'failed'),
           itemsReturned: r.items_returned,
+          assetsReturned: r.assets_returned,
+          findingsReturned: r.findings_returned,
+          cdnCount: parseCdnHosts(r.notices).length,
           latencyMs: r.latency_ms,
           message: r.message,
         }))
@@ -87,6 +95,13 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
 export function latestScanSummary(scans: ScanHistoryRow[]): ScanSummary | null {
   const s = scans[0];
   return s
-    ? { id: s.id, status: s.status, createdAt: s.createdAt, finishedAt: s.finishedAt, errorMessage: s.errorMessage }
+    ? {
+        id: s.id,
+        status: s.status,
+        createdAt: s.createdAt,
+        finishedAt: s.finishedAt,
+        errorMessage: s.errorMessage,
+        sourceFailures: s.sources.some((r) => isSourceFailure(r.status)),
+      }
     : null;
 }

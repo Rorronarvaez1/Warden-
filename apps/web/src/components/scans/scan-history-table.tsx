@@ -1,13 +1,9 @@
 import { Fragment } from 'react';
 import { formatDateTime } from '@/components/dashboard/format';
 import styles from '@/components/dashboard/dashboard.module.css';
-import {
-  SCAN_STATUS_COLORS,
-  SCAN_STATUS_LABELS,
-  SOURCE_RUN_COLORS,
-  SOURCE_RUN_LABELS,
-} from '@/components/dashboard/scan-status';
-import type { ScanHistoryRow } from '@/lib/scan-history';
+import { scanDisplayStatus, SOURCE_RUN_COLORS, SOURCE_RUN_LABELS } from '@/components/dashboard/scan-status';
+import { isSourceFailure } from '@/lib/dashboard-data';
+import type { ScanHistoryRow, ScanSourceRun } from '@/lib/scan-history';
 
 export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
   const withFailures = scans.filter(hasFailures).length;
@@ -47,10 +43,10 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                 const errors = [
                   ...(s.errorMessage ? [{ key: 'scan', label: 'Escaneo', message: s.errorMessage }] : []),
                   ...s.sources
-                    .filter((r) => r.status === 'failed' || r.status === 'blocked')
+                    .filter((r) => isSourceFailure(r.status))
                     .map((r) => ({ key: r.sourceKey, label: r.name, message: r.message ?? 'sin detalle' })),
                 ];
-                const status = displayStatus(s);
+                const status = scanDisplayStatus(s.status, s.sources.some((r) => isSourceFailure(r.status)));
                 return (
                   <Fragment key={s.id}>
                     <tr className={errors.length > 0 ? styles.hasDetail : undefined}>
@@ -71,7 +67,7 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                               style={{ color: SOURCE_RUN_COLORS[r.status] }}
                               title={r.message ?? undefined}
                             >
-                              {r.name} · {r.status === 'ok' ? `${r.itemsReturned} resultados` : SOURCE_RUN_LABELS[r.status]}
+                              {r.name} · {r.status === 'ok' ? runSummary(r) : SOURCE_RUN_LABELS[r.status]}
                             </span>
                           ))}
                           {s.sources.length === 0 && <span className={styles.muted}>—</span>}
@@ -101,13 +97,24 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
 }
 
 function hasFailures(s: ScanHistoryRow): boolean {
-  return s.status === 'failed' || s.sources.some((r) => r.status === 'failed' || r.status === 'blocked');
+  return s.status === 'failed' || s.sources.some((r) => isSourceFailure(r.status));
 }
 
-// Un escaneo "completado" puede tener fuentes fallidas: mostrarlo en verde ocultaría el fallo.
-function displayStatus(s: ScanHistoryRow): { label: string; color: string } {
-  if (s.status === 'completed' && hasFailures(s)) return { label: 'Con fallos', color: 'var(--grade-c)' };
-  return { label: SCAN_STATUS_LABELS[s.status], color: SCAN_STATUS_COLORS[s.status] };
+/** "1 activo · 0 hallazgos · 1 IP de CDN"; las filas previas al desglose solo tienen el total. */
+function runSummary(r: ScanSourceRun): string {
+  if (r.assetsReturned === 0 && r.findingsReturned === 0 && r.itemsReturned > 0) {
+    return `${r.itemsReturned} resultados`;
+  }
+  const parts = [
+    plural(r.assetsReturned, 'activo', 'activos'),
+    plural(r.findingsReturned, 'hallazgo', 'hallazgos'),
+  ];
+  if (r.cdnCount > 0) parts.push(plural(r.cdnCount, 'IP de CDN', 'IPs de CDN'));
+  return parts.join(' · ');
+}
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 function duration(startedAt: string | null, finishedAt: string | null): string {

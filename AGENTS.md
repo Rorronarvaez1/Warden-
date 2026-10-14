@@ -290,7 +290,7 @@ Estilo de código:
    - `collector.ts` que exporta un `Collector` (`isNoContact: true`, respeta `ctx.signal`).
    - `mapper.ts` con la transformación pura de la respuesta → `DiscoveredAsset[]` / `NormalizedFinding[]`.
    - `mapper.test.ts` con vitest.
-3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
+3. Usar `fingerprint(sourceKey, ruleId, assetValue)` para cada hallazgo. Lo observado que no es hallazgo (p. ej. IPs de CDN omitidas) va en `CollectorResult.notices`; el worker lo guarda en `scan_sources.notices` junto con `assets_returned` / `findings_returned`. **No** incluir datos que cambien entre escaneos (fechas, conteos) o se duplicarán.
 4. Registrarlo en `packages/collectors/src/registry.ts`.
 5. Insertarlo en `supabase/seed.sql` (deshabilitado por defecto; un admin lo habilita).
 6. Si requiere API key: variable en `.env.example` (sección worker) + fila en `source_credentials` con el `secret_ref`.

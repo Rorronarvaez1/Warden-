@@ -63,6 +63,8 @@ export interface ScanSummary {
   createdAt: string;
   finishedAt: string | null;
   errorMessage: string | null;
+  /** Alguna fuente falló o fue bloqueada aunque el escaneo haya terminado. */
+  sourceFailures: boolean;
 }
 
 /** Estado de una fuente del dominio `exposure` y su resultado en el último escaneo. */
@@ -70,7 +72,21 @@ export interface ExposureSource {
   sourceKey: string;
   name: string;
   enabled: boolean;
-  lastRun: { status: ScanSourceStatus; itemsReturned: number; message: string | null } | null;
+  lastRun: {
+    status: ScanSourceStatus;
+    assetsReturned: number;
+    findingsReturned: number;
+    message: string | null;
+    /** IPs omitidas por pertenecer a un CDN (scan_sources.notices). */
+    cdnHosts: CdnHost[];
+  } | null;
+}
+
+export interface CdnHost {
+  ip: string;
+  provider: string | null;
+  resolvedFrom: string[];
+  portsObserved: number;
 }
 
 export interface ExposureService {

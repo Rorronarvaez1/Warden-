@@ -29,3 +29,12 @@ export const SOURCE_RUN_COLORS: Record<ScanSourceStatus, string> = {
   skipped: 'var(--muted)',
   blocked: 'var(--grade-f)',
 };
+
+/**
+ * Estado a mostrar: un escaneo "completado" con fuentes fallidas se marca "Con fallos";
+ * en verde ocultaría que no hubo datos.
+ */
+export function scanDisplayStatus(status: ScanStatus, sourceFailures: boolean): { label: string; color: string } {
+  if (status === 'completed' && sourceFailures) return { label: 'Con fallos', color: 'var(--grade-c)' };
+  return { label: SCAN_STATUS_LABELS[status], color: SCAN_STATUS_COLORS[status] };
+}

@@ -2,7 +2,7 @@ import { isPublicIpv4, resolveIpv4 } from '../dns/resolve-ipv4';
 import { fetchPublicJson, SourceHttpError } from '../http/public-json';
 import type { Collector, CollectorTarget } from '../types';
 import { fetchCveEnrichment } from './cve-enrichment';
-import { internetDbHostSchema, mapExposure, SOURCE_KEY, type ObservedHost } from './mapper';
+import { cdnNotices, internetDbHostSchema, mapExposure, SOURCE_KEY, type ObservedHost } from './mapper';
 
 const MAX_IPS = 256;
 const CONCURRENCY = 4;
@@ -66,6 +66,7 @@ export const internetdbCollector: Collector = {
     return {
       assets: ips.map((value) => ({ type: 'ip', value })),
       findings: mapExposure(hosts, new Date(), enrichment),
+      notices: cdnNotices(hosts),
     };
   },
 };
