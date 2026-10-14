@@ -483,18 +483,37 @@
 
 /* --- Historial de escaneos --- */
 
-.sourceRuns {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Columnas fijas compactas; Fuentes toma el resto del ancho. */
+.historyTable th:nth-child(-n + 4),
+.historyTable td:nth-child(-n + 4) {
+  width: 1%;
+  padding-right: 28px;
 }
 
-.errorText {
-  margin-top: 4px;
+.table tr.hasDetail td {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.table tr.detailRow td {
+  padding: 0 10px 12px;
   color: var(--grade-f);
   font-size: 12px;
   white-space: normal;
+}
+
+.detailRow td > div {
+  padding: 6px 10px;
+  border-left: 2px solid var(--grade-f);
+  background: var(--surface-2);
+  border-radius: 0 4px 4px 0;
+}
+
+.detailRow td > div + div {
+  margin-top: 4px;
+}
+
+.detailRow strong {
+  color: var(--text);
+  font-weight: 600;
 }
