@@ -138,6 +138,7 @@ Warden-/
 ├── supabase/
 │   ├── migrations/             SQL versionado (fuente de verdad del esquema)
 │   ├── seed.sql                Catálogos: risk_domains y sources
+│   ├── seeds/dev-admin.sql     Admin de desarrollo (solo local)
 │   └── config.toml
 ├── infra/docker-compose.yml    Worker + SpiderFoot en local
 ├── docs/                       architecture.md, scoring-model.md, sources.md, adr/, diagrams/ (ER en Mermaid)
@@ -321,7 +322,9 @@ docker compose -f infra/docker-compose.yml up --build   # worker + SpiderFoot
 
 Para ver el dashboard sin Supabase: `WARDEN_DEV_SKIP_AUTH=true` (la config `web` de `.claude/launch.json` ya lo hace).
 
-Primer admin: regístrate y ejecuta
+Admin local: `supabase/seeds/dev-admin.sql` crea `admin@warden.test` (contraseña en ese archivo) activo y con rol `admin` en cada `pnpm db:start` / `pnpm db:reset`. Solo aplica en local y CI; `supabase db push` no ejecuta seeds.
+
+Primer admin en un entorno real: regístrate y ejecuta
 ```sql
 update public.profiles set role = 'admin', is_active = true where id = '<tu-user-id>';
 ```
