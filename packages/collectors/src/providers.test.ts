@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runRiskAnalysis } from '@warden/risk-analysis';
-import { decodeTxtRecord, emailDnsProvider } from './email-dns/provider';
+import { decodeTxtRecord, emailDnsProvider } from './email_dns/provider';
 import { mapHibpDomain } from './hibp/mapper';
 import { hibpProvider } from './hibp/provider';
 import { fetchPublicJson, SourceHttpError } from './http/public-json';
@@ -42,7 +42,7 @@ describe('Proveedor de correos', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const executions = await runRiskAnalysis(target, [emailDnsProvider], [
-      { sourceKey: 'email-dns', isEnabled: true, isNoContact: true },
+      { sourceKey: 'email_dns', isEnabled: true, isNoContact: true },
     ], context);
     const result = executions[0];
     expect(result?.status).toBe('ok');

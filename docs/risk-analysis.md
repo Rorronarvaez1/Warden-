@@ -17,7 +17,7 @@ resultados independientes `ok`, `failed`, `skipped` o `blocked` por fuente.
 
 ## Correos
 
-El proveedor `email-dns` consulta TXT, DMARC y MX mediante Google Public DNS DoH.
+El proveedor `email_dns` consulta TXT, DMARC y MX mediante Google Public DNS DoH.
 No resuelve mediante el DNS del sistema, no usa servidores autoritativos como destino
 directo y no abre conexiones HTTP/SMTP a la empresa. Solo consulta DKIM cuando el
 analista proporciona selectores conocidos (máximo 20); no enumera selectores.

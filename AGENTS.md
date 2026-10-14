@@ -12,6 +12,13 @@ La regla que define el producto: **solo se usa información pasiva (OSINT)**. Wa
 
 > ⚠️ **Regla no negociable (no-contact):** cualquier código que contacte directamente activos de la empresa evaluada es un bug grave, no una feature. Está protegido en tres capas: tipo TypeScript, compuerta en runtime y CHECK constraint en la BD (ver §6).
 
+### Alcance: una sola empresa
+
+Warden es un proyecto universitario desarrollado para **una empresa real que lo contrató**. Esa empresa es la única que usa Warden y **la única que se evalúa**: no se evalúan proveedores ni terceros. El esquema admite varias filas en `companies`, pero en la práctica habrá una sola empresa con sus dominios y activos. Consecuencias:
+
+- Las fuentes que exigen demostrar control del dominio (p. ej. HIBP) son viables: la empresa verifica sus propios dominios una vez.
+- Las cuentas y llaves de servicios de pago deben ser **de la empresa**, no del equipo, para que sigan funcionando al terminar el proyecto.
+
 ### Usuarios y roles
 
 | Rol | Puede |
@@ -45,7 +52,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Esqueleto con **datos mock** (`apps/web/src/lib/mock-dashboard.ts`) |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 Solo `crtsh` registrado (descubre subdominios, aún no produce hallazgos); adaptadores `email-dns` y `hibp` disponibles por separado |
+| Colectores del pipeline | 🟡 Solo `crtsh` registrado (descubre subdominios, aún no produce hallazgos); adaptadores `email_dns` y `hibp` disponibles por separado |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -110,7 +117,7 @@ Warden-/
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
 │   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
-│   │       ├── email-dns/      provider.ts — consultas a Google Public DNS DoH
+│   │       ├── email_dns/      provider.ts — consultas a Google Public DNS DoH
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido
 │   │       └── providers.test.ts
@@ -156,7 +163,7 @@ Reglas:
 - Los paquetes exportan TS fuente vía `"exports": { ".": "./src/index.ts" }`. Si la web necesita un paquete nuevo, añádelo a `transpilePackages` en `apps/web/next.config.ts`.
 - `@warden/risk-analysis` contiene contratos/registro/ejecutor y módulos `email` y `credentials`.
   `credentials` no es un valor de `RiskDomainKey` ni reemplaza `secrets`; su incorporación al KRI
-  requiere una decisión explícita y migraciones. Los proveedores `email-dns` y `hibp` están
+  requiere una decisión explícita y migraciones. Los proveedores `email_dns` y `hibp` están
   exportados por collectors pero no se registran en `collectAll` ni en el seed todavía.
 
 ---
@@ -355,85 +362,29 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 
 ---
 
-## 12. Entrega de módulos de correo y credenciales (12 de octubre de 2026)
+## 12. Módulos de análisis de correo y credenciales
 
-### Qué se implementó
+`@warden/risk-analysis` agrupa analizadores puros (`email`, `credentials`), sus contratos y el
+ejecutor `runRiskAnalysis`. Los proveedores que hacen las consultas externas (`emailDnsProvider`,
+`hibpProvider`) viven en `@warden/collectors` y usan el cliente HTTP restringido de
+`collectors/src/http/public-json.ts` (hosts permitidos, solo HTTPS, sin redirects, timeout y
+límite de tamaño). Contratos, ejemplo de uso y limitaciones: [docs/risk-analysis.md](docs/risk-analysis.md).
 
-Se agregó una arquitectura modular dentro del monorepo, sin crear APIs ni servicios
-HTTP independientes por dominio. Los analizadores transforman evidencia mediante
-funciones puras; los proveedores hacen consultas externas y el ejecutor común los
-coordina. El ejecutor no persiste resultados ni calcula el KRI.
+Reglas para trabajar con estos módulos:
 
-| Pieza | Ruta / export | Responsabilidad |
-|---|---|---|
-| Correo | `packages/risk-analysis/src/email/`, `emailModule` | Observa publicación SPF/DMARC/MX y selectores DKIM conocidos |
-| DNS público | `packages/collectors/src/email-dns/`, `emailDnsProvider` | Consulta únicamente `https://dns.google/resolve`; no hace conexiones HTTP/SMTP a la empresa |
-| Credenciales en brechas | `packages/risk-analysis/src/credentials/`, `credentialsModule` | Analiza cuentas agregadas por brecha, sin almacenar aliases o contraseñas |
-| HIBP | `packages/collectors/src/hibp/`, `hibpProvider` | Consulta dominio previamente verificado y catálogo de brechas; descarta aliases en el mapper |
-| Base general | `packages/risk-analysis/src/{types,schemas,target,registry,runner}.ts` | Contratos, validación, atribución, registro y coordinación reutilizables |
-| HTTP compartido | `packages/collectors/src/http/public-json.ts` | Hosts permitidos explícitos, HTTPS, redirects bloqueados, timeout de 15 s y límite de 5 MiB |
-
-`runRiskAnalysis` se importa de `@warden/risk-analysis`; los proveedores se importan
-de `@warden/collectors`. La evidencia tiene `schemaVersion: 1`. Las observaciones
-usan `observed`, `absent` o `unknown`; cada ejecución de fuente devuelve `ok`,
-`failed`, `skipped` o `blocked`. Fallos de consulta nunca significan ausencia de riesgo.
-Las fuentes sin una política no-contact confiable quedan bloqueadas antes de recolectar.
-
-### Alcance y restricciones
-
-- Ambos módulos reportan cobertura `partial`, sin puntajes, letras ni severidades.
-- Correo es una inspección inicial de publicación DNS: no evalúa SPF includes/redirects,
-  políticas DMARC heredadas, envío SMTP ni firmas DKIM. Sin selectores conocidos,
-  DKIM queda desconocido; no enumerar selectores por fuerza bruta.
-- HIBP necesita `HIBP_API_KEY` (32 caracteres hexadecimales), suscripción compatible
-  y dominio previamente verificado en HIBP. La variable está en `.env.example` y
-  se valida en `apps/worker/src/config.ts`; nunca llevarla a web ni `NEXT_PUBLIC_*`.
-- Warden no inicia verificaciones por correo ni modifica DNS para HIBP. 403 es fallo
-  de autorización; 404 del endpoint de dominio indica que HIBP no devolvió cuentas,
-  sin garantizar ausencia de filtraciones. Los conteos de distintas brechas no
-  representan cuentas únicas sumables.
-- Los resultados de HIBP llevan atribución y enlace al proveedor (CC BY 4.0).
-  Conservarlos y mostrarlos en cualquier futura interfaz o reporte.
-- `credentials` es una **clave de módulo**, no un valor de `RiskDomainKey` ni un
-  reemplazo de `secrets`. Su resultado mantiene `riskDomain: null` hasta acordar
-  cómo se incorpora al modelo del KRI.
-- `runScan`, `collectAll` y la persistencia actual siguen sin usar estos adaptadores.
-  No se modificaron el esquema, los enums ni el seed; tampoco se regeneraron tipos
-  de BD porque no hubo cambios de esquema. No afirmar que están activos en producción.
-
-### Pasos para continuar la integración
-
-1. Acordar cómo se incorpora la evidencia de brechas al catálogo KRI y qué política
-   convierte observaciones en hallazgos con severidad/confianza. No inventar scoring.
-2. Crear las migraciones necesarias y actualizar catálogos/enums/seed de forma
-   consistente. Registrar las fuentes **deshabilitadas por defecto**; para HIBP,
-   guardar únicamente `secret_ref = 'HIBP_API_KEY'` en `source_credentials`.
-3. Si cambia el esquema, ejecutar `pnpm db:reset` y `pnpm db:types` y versionar los
-   tipos generados. Cualquier tabla nueva necesita RLS y políticas.
-4. Conectar el ejecutor al worker y cargar sus políticas desde `sources` en el
-   servidor; nunca recibir `isEnabled`/`isNoContact` desde el body del navegador.
-   Mantener las tres capas no-contact, registro de ejecución y deduplicación estable
-   al integrar los resultados con `scan_sources`, `findings` y `finding_sources`.
-   Si el worker importa directamente `@warden/risk-analysis`, agregar su dependencia
-   explícita al `package.json` del worker y actualizar el lockfile.
-5. Agregar pruebas de integración/persistencia y luego conectar la UI a los datos
-   reales con la sesión del usuario y RLS.
-
-### Validación y actualización local
-
-En la entrega inicial pasaron la validación de tipos del monorepo y **19 pruebas**:
-10 de análisis, 8 de proveedores y 1 existente de crt.sh. Se usaron respuestas
-simuladas; no se verificó una suscripción ni se consultaron dominios reales.
-
-Después de incorporar los cambios desde Git, instalar dependencias usando la versión
-fijada por `package.json` (`pnpm@10.34.6`) y ejecutar:
-
-```bash
-corepack pnpm install --frozen-lockfile
-corepack pnpm typecheck
-corepack pnpm test
-```
-
-La entrega también actualiza `pnpm-lock.yaml`, `docs/architecture.md` y
-`docs/sources.md`. Ejemplo de invocación, contratos y limitaciones detalladas en
-[docs/risk-analysis.md](docs/risk-analysis.md).
+- **Aún no están integrados:** `runScan`, `collectAll`, el seed y la persistencia no los usan.
+  No afirmar que están activos.
+- **Sin scoring:** reportan observaciones (`observed | absent | unknown`) con cobertura `partial`,
+  sin puntajes, letras ni severidades. Un fallo de consulta nunca significa ausencia de riesgo.
+- **`credentials` no es un `RiskDomainKey`** ni reemplaza `secrets`; su resultado lleva
+  `riskDomain: null` hasta decidir cómo entra al KRI (ver [docs/sources.md](docs/sources.md)).
+- **Correo:** solo inspecciona publicación DNS (SPF, DMARC, MX y selectores DKIM conocidos).
+  No enumerar selectores DKIM por fuerza bruta.
+- **HIBP:** requiere `HIBP_API_KEY` (solo en el worker) y dominios verificados por la empresa.
+  Warden no inicia verificaciones. Conservar y mostrar la atribución a HIBP (CC BY 4.0) en
+  cualquier interfaz o reporte. Nunca guardar aliases, correos ni contraseñas.
+- **Al integrarlos al worker:** registrar las fuentes en el seed deshabilitadas, cargar las
+  políticas desde `sources` (nunca desde el navegador), mantener las tres capas no-contact y
+  agregar `@warden/risk-analysis` como dependencia explícita del worker si se importa directo.
+  Hoy hay dos contratos paralelos (`Collector` y `EvidenceProvider`); conviene unificarlos o
+  definir cómo se conectan antes de integrar.
