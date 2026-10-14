@@ -12,6 +12,7 @@ import {
   type DashboardData,
   type DomainScoreRow,
   type ExposureOverview,
+  type SourceStatus,
   type FindingRow,
   type TrendPoint,
 } from './dashboard-types';
@@ -77,19 +78,24 @@ const trend: TrendPoint[] = [
   { scannedAt: '2026-10-06T14:10:00Z', score: 81.3 },
 ];
 
+const lastRun = (assetsReturned: number, findingsReturned: number) => ({
+  status: 'ok' as const,
+  assetsReturned,
+  findingsReturned,
+  itemsReturned: assetsReturned + findingsReturned,
+  message: null,
+  at: '2026-10-06T14:00:00Z',
+});
+
+const sources: SourceStatus[] = [
+  { sourceKey: 'internetdb', name: 'Shodan InternetDB', riskDomain: 'exposure', enabled: true, lastRun: lastRun(3, 4) },
+  { sourceKey: 'email_dns', name: 'DNS público (correo)', riskDomain: 'email', enabled: true, lastRun: lastRun(0, 2) },
+  { sourceKey: 'crtsh', name: 'crt.sh', riskDomain: 'certs', enabled: true, lastRun: lastRun(6, 0) },
+];
+
 const exposure: ExposureOverview = {
-  source: {
-    sourceKey: 'internetdb',
-    name: 'Shodan InternetDB',
-    enabled: true,
-    lastRun: {
-      status: 'ok',
-      assetsReturned: 3,
-      findingsReturned: 4,
-      message: null,
-      cdnHosts: [{ ip: '198.51.100.20', provider: 'Imperva', resolvedFrom: ['www.empresa-ejemplo.mx'], portsObserved: 412 }],
-    },
-  },
+  source: sources[0]!,
+  cdnHosts: [{ ip: '198.51.100.20', provider: 'Imperva', resolvedFrom: ['www.empresa-ejemplo.mx'], portsObserved: 412 }],
   hosts: [
     {
       ip: '203.0.113.10',
@@ -122,6 +128,20 @@ export const mockDashboard: DashboardData = {
   recentFindings,
   trend,
   exposure,
+  email: {
+    source: sources[1]!,
+    domains: [{
+      domain: 'empresa-ejemplo.mx',
+      spf: 'present',
+      spfAllowsAll: false,
+      dmarc: 'present',
+      dmarcPolicy: 'none',
+      mxCount: 2,
+      nullMx: false,
+    }],
+    findings: [{ id: 'm1', title: 'DMARC de empresa-ejemplo.mx solo monitorea (p=none): no bloquea suplantación', severity: 'low' }],
+  },
+  sources,
   lastScan: {
     id: 's1',
     status: 'completed',

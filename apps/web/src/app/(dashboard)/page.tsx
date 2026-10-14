@@ -2,11 +2,13 @@ import { AssetsTable } from '@/components/dashboard/assets-table';
 import { CompanySetup } from '@/components/dashboard/company-setup';
 import styles from '@/components/dashboard/dashboard.module.css';
 import { DomainBreakdown } from '@/components/dashboard/domain-breakdown';
+import { EmailPanel } from '@/components/dashboard/email-panel';
 import { ExposurePanel } from '@/components/dashboard/exposure-panel';
 import { formatDate } from '@/components/dashboard/format';
 import { RecentFindings } from '@/components/dashboard/recent-findings';
 import { ScanControls } from '@/components/dashboard/scan-controls';
 import { ScoreGauge } from '@/components/dashboard/score-gauge';
+import { SourcesCard } from '@/components/dashboard/sources-card';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { loadDashboard } from '@/lib/dashboard-data';
@@ -18,7 +20,8 @@ export default async function DashboardPage() {
   const state = await loadDashboard();
   if (state.kind === 'no-company') return <CompanySetup />;
 
-  const { company, domains, assets, recentFindings, trend, exposure, lastScan, isAdmin, mode } = state.data;
+  const { company, domains, assets, recentFindings, trend, exposure, email, sources, lastScan, isAdmin, mode } =
+    state.data;
   const delta =
     company.score === null || company.previousScore === null ? null : company.score - company.previousScore;
   const confirmedAssets = assets.filter((a) => a.status === 'confirmed').length;
@@ -68,6 +71,11 @@ export default async function DashboardPage() {
       </div>
 
       <ExposurePanel exposure={exposure} isAdmin={isAdmin && live} />
+
+      <div className={styles.rowWide}>
+        <EmailPanel email={email} isAdmin={isAdmin && live} />
+        <SourcesCard sources={sources} isAdmin={isAdmin && live} />
+      </div>
 
       <div className={styles.rowHalf}>
         <DomainBreakdown domains={domains} />

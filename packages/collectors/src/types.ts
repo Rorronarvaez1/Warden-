@@ -37,7 +37,8 @@ export interface NormalizedFinding {
  * (p. ej. una IP omitida por ser de un CDN). Se guarda en scan_sources.notices.
  */
 export interface CollectorNotice {
-  kind: 'cdn';
+  /** cdn: IP omitida por ser de un CDN. observation: estado observado (p. ej. SPF publicado). */
+  kind: 'cdn' | 'observation';
   /** Valor afectado, p. ej. la IP. */
   subject: string;
   message: string;
