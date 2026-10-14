@@ -1,4 +1,6 @@
-const ALLOWED_HOSTS = new Set(['dns.google', 'haveibeenpwned.com']);
+const ALLOWED_HOSTS = new Set([
+  'dns.google', 'haveibeenpwned.com', 'internetdb.shodan.io', 'www.cisa.gov', 'api.first.org',
+]);
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 export class SourceHttpError extends Error {

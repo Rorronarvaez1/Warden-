@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -7,11 +7,6 @@
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -280,16 +275,19 @@ export type Database = {
       finding_sources: {
         Row: {
           finding_id: string
+          last_seen_scan_id: string | null
           raw_reference: Json | null
           source_key: string
         }
         Insert: {
           finding_id: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key: string
         }
         Update: {
           finding_id?: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key?: string
         }
@@ -299,6 +297,13 @@ export type Database = {
             columns: ["finding_id"]
             isOneToOne: false
             referencedRelation: "findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finding_sources_last_seen_scan_id_fkey"
+            columns: ["last_seen_scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
             referencedColumns: ["id"]
           },
           {
@@ -524,28 +529,37 @@ export type Database = {
       }
       scan_sources: {
         Row: {
+          assets_returned: number
+          findings_returned: number
           id: string
           items_returned: number
           latency_ms: number | null
           message: string | null
+          notices: Json
           scan_id: string
           source_key: string
           status: string
         }
         Insert: {
+          assets_returned?: number
+          findings_returned?: number
           id?: string
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
+          notices?: Json
           scan_id: string
           source_key: string
           status: string
         }
         Update: {
+          assets_returned?: number
+          findings_returned?: number
           id?: string
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
+          notices?: Json
           scan_id?: string
           source_key?: string
           status?: string
@@ -943,12 +957,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -972,11 +986,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -997,11 +1011,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1022,11 +1036,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1039,11 +1053,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1060,3 +1074,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

@@ -1,7 +1,7 @@
 'use client';
 
 // Formulario portado de frontend/frontend (Login.tsx), ahora contra Supabase Auth
-// con email + contraseña. Los roles viven en public.profiles.
+// con usuario local o correo + contraseña. Los roles viven en public.profiles.
 
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
@@ -27,11 +27,12 @@ export default function LoginPage() {
 
   function validate(): boolean {
     if (!credentials.email.trim()) {
-      setError({ field: 'email', message: 'El email es obligatorio' });
+      setError({ field: 'email', message: 'El usuario o correo es obligatorio' });
       return false;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) {
-      setError({ field: 'email', message: 'Email inválido' });
+    const identifier = credentials.email.trim().toLowerCase();
+    if (!(identifier.includes('@') ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier) : /^[a-z0-9][a-z0-9._-]{2,31}$/.test(identifier))) {
+      setError({ field: 'email', message: 'Usuario o correo inválido' });
       return false;
     }
     if (credentials.password.length < 6) {
@@ -48,9 +49,23 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const { error: authError } = await createClient().auth.signInWithPassword(credentials);
+      const supabase = createClient();
+      const identifier = credentials.email.trim().toLowerCase();
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: identifier.includes('@') ? identifier : `${identifier}@warden.test`,
+        password: credentials.password,
+      });
       if (authError) {
         setError({ field: 'general', message: 'Credenciales incorrectas' });
+        return;
+      }
+      const { data: profile, error: profileError } = await supabase.from('profiles')
+        .select('is_active').eq('id', data.user.id).single();
+      if (profileError || !profile?.is_active) {
+        await supabase.auth.signOut();
+        setError({ field: 'general', message: profileError
+          ? 'No se pudo comprobar el acceso. Intenta de nuevo.'
+          : 'Tu cuenta está inactiva. Solicita su activación a un administrador.' });
         return;
       }
       router.push('/');
@@ -72,18 +87,18 @@ export default function LoginPage() {
 
         <div className={styles.field}>
           <label htmlFor="email" className={styles.label}>
-            Email
+            Usuario o correo
           </label>
           <input
             id="email"
             name="email"
-            type="email"
+            type="text"
             value={credentials.email}
             onChange={handleChange}
-            placeholder="tu@email.com"
+            placeholder="analista o tu@email.com"
             className={`${styles.input} ${error?.field === 'email' ? styles.inputError : ''}`}
             disabled={isLoading}
-            autoComplete="email"
+            autoComplete="username"
           />
           {error?.field === 'email' && <span className={styles.errorText}>{error.message}</span>}
         </div>

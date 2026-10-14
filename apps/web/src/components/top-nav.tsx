@@ -5,10 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './top-nav.module.css';
 
-// Solo Dashboard existe por ahora; el resto de rutas está pendiente.
+// Dashboard, Escaneos y Configuración (usuarios locales) existen; el resto está pendiente.
 const NAV = [
   { href: '/', label: 'Dashboard' },
-  { href: '/companies', label: 'Empresas' },
+  { href: '/assets', label: 'Activos' },
   { href: '/findings', label: 'Hallazgos' },
   { href: '/scans', label: 'Escaneos' },
   { href: '/reports', label: 'Reportes' },

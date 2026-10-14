@@ -36,7 +36,7 @@ async function queryDns(name: string, type: 'TXT' | 'MX', signal: AbortSignal): 
 }
 
 export const emailDnsProvider: EvidenceProvider = {
-  sourceKey: 'email-dns', moduleKey: 'email', isNoContact: true,
+  sourceKey: 'email_dns', moduleKey: 'email', isNoContact: true,
   async collect(target, context) {
     const domain = domainSchema.parse(target.primaryDomain);
     const selectors = z.array(z.string().regex(/^[a-zA-Z0-9_-]{1,63}$/)).max(20)
@@ -51,7 +51,7 @@ export const emailDnsProvider: EvidenceProvider = {
       context.signal.throwIfAborted();
       dkim.push({ selector, observation: await queryDns(`${selector}._domainkey.${domain}`, 'TXT', context.signal) });
     }
-    return emailEvidenceSchema.parse({ schemaVersion: 1, sourceKey: 'email-dns', subjectDomain: domain,
+    return emailEvidenceSchema.parse({ schemaVersion: 1, sourceKey: 'email_dns', subjectDomain: domain,
       observedAt: new Date().toISOString(), spf, dmarc, mx, dkim });
   },
 };

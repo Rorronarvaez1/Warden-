@@ -13,7 +13,11 @@ insert into public.risk_domains (key, name, description) values
 -- Licencias en null están pendientes de verificar (docs/sources.md).
 insert into public.sources (source_key, name, risk_domain_id, is_no_contact, license) values
   ('spiderfoot', 'SpiderFoot (módulos pasivos)', (select id from public.risk_domains where key = 'exposure'),      true,  'MIT'),
+  -- InternetDB es gratuito solo para uso no comercial (docs/sources.md).
+  ('internetdb', 'Shodan InternetDB',          (select id from public.risk_domains where key = 'exposure'),      true,  'Gratuito, uso no comercial'),
   ('crtsh',      'crt.sh',                       (select id from public.risk_domains where key = 'certs'),         true,  null),
+  -- Lee SPF/DMARC/MX publicados vía dns.google (DoH); no contacta servidores de la empresa.
+  ('email_dns',  'DNS público (correo)',         (select id from public.risk_domains where key = 'email'),         true,  'Registros DNS públicos'),
   ('checkdmarc', 'checkdmarc',                   (select id from public.risk_domains where key = 'email'),         true,  'Apache-2.0'),
   ('gitleaks',   'Gitleaks',                     (select id from public.risk_domains where key = 'secrets'),       true,  'MIT'),
   ('abusech',    'abuse.ch',                     (select id from public.risk_domains where key = 'reputation'),    true,  null),

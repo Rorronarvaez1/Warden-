@@ -1,0 +1,170 @@
+// Formas que consumen los componentes del dashboard. Las llenan los datos reales
+// (dashboard-data.ts) o los de ejemplo (mock-dashboard.ts) cuando no hay sesión en dev.
+//
+// El KRI y las notas son null mientras no exista el modelo de scoring
+// (docs/scoring-model.md): no hay filas en `scores` que mostrar.
+
+import type { AssetType, Confidence, Grade, RiskDomainKey, ScanSourceStatus, ScanStatus, Severity } from '@warden/shared';
+
+export interface CompanyOverview {
+  id: string;
+  name: string;
+  primaryDomain: string;
+  score: number | null;
+  grade: Grade | null;
+  /** Puntaje del escaneo anterior, para mostrar la variación. */
+  previousScore: number | null;
+  lastScanAt: string | null;
+  /** Próxima ejecución programada (schedules.next_run_at). */
+  nextScanAt: string | null;
+  openFindings: number;
+  openCriticalFindings: number;
+}
+
+export type AttributionStatus = 'pending' | 'confirmed' | 'discarded';
+
+export interface AssetRow {
+  id: string;
+  type: AssetType;
+  value: string;
+  status: AttributionStatus;
+  discoverySource: 'auto' | 'manual';
+  lastSeen: string;
+}
+
+export interface DomainScoreRow {
+  key: RiskDomainKey;
+  name: string;
+  /** Peso en el KRI según la versión activa; null si no hay pesos definidos. */
+  weight: number | null;
+  score: number | null;
+  grade: Grade | null;
+  findingsCount: number;
+}
+
+export interface FindingRow {
+  id: string;
+  indicator: string;
+  domain: RiskDomainKey;
+  severity: Severity;
+  confidence: Confidence;
+  source: string;
+  observedAt: string;
+}
+
+export interface TrendPoint {
+  scannedAt: string;
+  score: number;
+}
+
+export interface ScanSummary {
+  id: string;
+  status: ScanStatus;
+  createdAt: string;
+  finishedAt: string | null;
+  errorMessage: string | null;
+  /** Alguna fuente falló o fue bloqueada aunque el escaneo haya terminado. */
+  sourceFailures: boolean;
+}
+
+/** Una fuente con colector implementado y su resultado en el último escaneo que la registró. */
+export interface SourceStatus {
+  sourceKey: string;
+  name: string;
+  riskDomain: RiskDomainKey | null;
+  enabled: boolean;
+  lastRun: {
+    status: ScanSourceStatus;
+    assetsReturned: number;
+    findingsReturned: number;
+    /** Total previo al desglose (filas antiguas). */
+    itemsReturned: number;
+    message: string | null;
+    at: string;
+  } | null;
+}
+
+export interface CdnHost {
+  ip: string;
+  provider: string | null;
+  resolvedFrom: string[];
+  portsObserved: number;
+}
+
+export interface ExposureService {
+  findingId: string;
+  port: number;
+  service: string;
+  severity: Severity;
+  confidence: Confidence;
+}
+
+export interface ExposureCve {
+  findingId: string;
+  cve: string;
+  severity: Severity;
+  inKev: boolean;
+  epss: number | null;
+}
+
+/** Hallazgos abiertos de exposición agrupados por IP. */
+export interface ExposureHost {
+  ip: string;
+  /** Dominios confirmados que resolvieron a la IP. */
+  resolvedFrom: string[];
+  worstSeverity: Severity;
+  services: ExposureService[];
+  cves: ExposureCve[];
+  observedAt: string;
+}
+
+export interface ExposureOverview {
+  source: SourceStatus | null;
+  hosts: ExposureHost[];
+  /** IPs omitidas por pertenecer a un CDN en el último escaneo (scan_sources.notices). */
+  cdnHosts: CdnHost[];
+}
+
+/** Estado de SPF/DMARC/MX de un dominio según la última corrida de email_dns. */
+export interface EmailDomainStatus {
+  domain: string;
+  spf: 'present' | 'missing' | 'multiple' | 'unknown';
+  spfAllowsAll: boolean;
+  dmarc: 'present' | 'missing' | 'multiple' | 'unknown';
+  /** none | quarantine | reject, o null si no hay una política reconocida. */
+  dmarcPolicy: string | null;
+  /** Registros MX publicados; null si no se pudo consultar. */
+  mxCount: number | null;
+  nullMx: boolean;
+}
+
+export interface EmailOverview {
+  source: SourceStatus | null;
+  domains: EmailDomainStatus[];
+  findings: { id: string; title: string; severity: Severity }[];
+}
+
+export interface DashboardData {
+  /** 'mock' solo en desarrollo, sin sesión y con WARDEN_DEV_SKIP_AUTH. */
+  mode: 'live' | 'mock';
+  isAdmin: boolean;
+  company: CompanyOverview;
+  domains: DomainScoreRow[];
+  assets: AssetRow[];
+  recentFindings: FindingRow[];
+  trend: TrendPoint[];
+  exposure: ExposureOverview;
+  email: EmailOverview;
+  /** Fuentes con colector implementado, para habilitarlas y ver su último resultado. */
+  sources: SourceStatus[];
+  lastScan: ScanSummary | null;
+}
+
+export const DOMAIN_LABELS: Record<RiskDomainKey, string> = {
+  exposure: 'Exposición de servicios',
+  email: 'Seguridad de correo',
+  certs: 'Certificados',
+  secrets: 'Secretos filtrados',
+  reputation: 'Reputación',
+  impersonation: 'Suplantación',
+};
