@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versión fija: "latest" consulta la API de GitHub sin token y falla por rate limit.
+          version: 2.107.0
       # Aplica migraciones + seed en un Postgres limpio para detectar SQL inválido.
       - run: supabase db start
