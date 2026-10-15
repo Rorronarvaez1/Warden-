@@ -59,7 +59,8 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
 | Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
-| Páginas Activos / Reportes | 🔴 Pendientes (ya están en la `TopNav`); Configuración ya enlaza a Usuarios |
+| Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
+| Página Reportes | 🔴 Pendiente (ya está en la `TopNav`); Configuración ya enlaza a Usuarios |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
