@@ -8,6 +8,7 @@ import { SourceToggle } from './source-toggle';
 const SOURCE_HINTS: Record<string, string> = {
   internetdb: 'Puertos y CVE por IP · uso gratuito solo no comercial',
   email_dns: 'SPF, DMARC y MX publicados',
+  abusech: 'Malware, IOC y botnets (URLhaus, ThreatFox, Feodo) · requiere ABUSECH_AUTH_KEY en el worker',
   crtsh: 'Descubre subdominios en logs de certificados; quedan "Por confirmar" en Activos',
 };
 

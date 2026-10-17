@@ -12,6 +12,7 @@ import {
   type DashboardData,
   type DomainScoreRow,
   type ExposureOverview,
+  type ReputationOverview,
   type SourceStatus,
   type FindingRow,
   type TrendPoint,
@@ -36,7 +37,7 @@ const domainScores: DomainScoreRow[] = [
   { key: 'email', name: DOMAIN_LABELS.email, weight: 20, score: 78.0, grade: 'C', findingsCount: 3 },
   { key: 'certs', name: DOMAIN_LABELS.certs, weight: 15, score: 90.0, grade: 'A', findingsCount: 2 },
   { key: 'secrets', name: DOMAIN_LABELS.secrets, weight: 15, score: 85.0, grade: 'B', findingsCount: 1 },
-  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 15, score: 100.0, grade: 'A', findingsCount: 0 },
+  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 15, score: 92.0, grade: 'A', findingsCount: 1 },
   { key: 'impersonation', name: DOMAIN_LABELS.impersonation, weight: 10, score: 64.0, grade: 'D', findingsCount: 2 },
 ];
 
@@ -90,6 +91,7 @@ const lastRun = (assetsReturned: number, findingsReturned: number) => ({
 const sources: SourceStatus[] = [
   { sourceKey: 'internetdb', name: 'Shodan InternetDB', riskDomain: 'exposure', enabled: true, lastRun: lastRun(3, 4) },
   { sourceKey: 'email_dns', name: 'DNS público (correo)', riskDomain: 'email', enabled: true, lastRun: lastRun(0, 2) },
+  { sourceKey: 'abusech', name: 'abuse.ch', riskDomain: 'reputation', enabled: true, lastRun: lastRun(0, 1) },
   { sourceKey: 'crtsh', name: 'crt.sh', riskDomain: 'certs', enabled: true, lastRun: lastRun(6, 0) },
 ];
 
@@ -119,6 +121,17 @@ const exposure: ExposureOverview = {
   ],
 };
 
+const reputation: ReputationOverview = {
+  source: sources[2]!,
+  subjects: [
+    { subject: '203.0.113.4', type: 'ip', resolvedFrom: ['empresa-ejemplo.mx'], urlhausOnline: 0, urlhausTotal: 2, threatfoxIocs: 0, feodo: 0, blocklists: [] },
+    { subject: 'empresa-ejemplo.mx', type: 'domain', resolvedFrom: [], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: null, blocklists: [] },
+    { subject: 'vpn.empresa-ejemplo.mx', type: 'domain', resolvedFrom: [], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: null, blocklists: [] },
+    { subject: '203.0.113.10', type: 'ip', resolvedFrom: ['vpn.empresa-ejemplo.mx'], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: 0, blocklists: [] },
+  ],
+  findings: [{ id: 'r1', title: '203.0.113.4 distribuyó malware (URLhaus, URLs ya inactivas)', severity: 'medium', subject: '203.0.113.4' }],
+};
+
 export const mockDashboard: DashboardData = {
   mode: 'mock',
   isAdmin: true,
@@ -128,6 +141,7 @@ export const mockDashboard: DashboardData = {
   recentFindings,
   trend,
   exposure,
+  reputation,
   email: {
     source: sources[1]!,
     domains: [{
