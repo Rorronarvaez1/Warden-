@@ -26,6 +26,8 @@ import {
   type ExposureOverview,
   type EmailDomainStatus,
   type EmailOverview,
+  type ReputationOverview,
+  type ReputationSubjectStatus,
   type SourceStatus,
   type FindingRow,
   type ScanSummary,
@@ -37,13 +39,14 @@ import { createClient } from './supabase/server';
 /** Fuente del dominio `exposure` con colector implementado (packages/collectors/src/internetdb). */
 export const EXPOSURE_SOURCE_KEY = 'internetdb';
 export const EMAIL_SOURCE_KEY = 'email_dns';
+export const REPUTATION_SOURCE_KEY = 'abusech';
 
 /**
  * Fuentes con colector registrado en packages/collectors/src/registry.ts. La web no importa
  * @warden/collectors (AGENTS.md §4), así que se mantiene a mano: habilitar una fuente sin
  * colector no haría nada.
  */
-export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, 'crtsh'] as const;
+export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, REPUTATION_SOURCE_KEY, 'crtsh'] as const;
 export type ImplementedSource = (typeof IMPLEMENTED_SOURCES)[number];
 
 const RECENT_FINDINGS = 8;
@@ -86,9 +89,10 @@ export async function loadDashboard(): Promise<DashboardState> {
     loadActiveWeights(supabase),
     loadSourceRuns(supabase, company.id),
   ]);
-  const [exposure, email] = await Promise.all([
+  const [exposure, email, reputation] = await Promise.all([
     loadExposure(supabase, company.id, sourceRuns),
     loadEmail(supabase, company.id, sourceRuns),
+    loadReputation(supabase, company.id, sourceRuns),
   ]);
 
   const latest = scores.latest;
@@ -127,6 +131,7 @@ export async function loadDashboard(): Promise<DashboardState> {
       trend: scores.trend,
       exposure,
       email,
+      reputation,
       sources: sourceRuns.statuses,
       lastScan: lastScan.latest,
     },
@@ -478,6 +483,61 @@ export function parseEmailDomains(notices: Json): EmailDomainStatus[] {
     }
   }
   return [...domains.values()];
+}
+
+/** Activos revisados en abuse.ch (avisos de abusech) y hallazgos abiertos de reputación. */
+async function loadReputation(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ReputationOverview> {
+  const { data, error } = await supabase
+    .from('findings')
+    .select('id, title, severity, evidence, risk_domains!inner(key)')
+    .eq('company_id', companyId)
+    .eq('status', 'open')
+    .eq('risk_domains.key', 'reputation')
+    .limit(200);
+  if (error) throw error;
+
+  return {
+    source: runs.statuses.find((s) => s.sourceKey === REPUTATION_SOURCE_KEY) ?? null,
+    subjects: parseReputationSubjects(runs.notices.get(REPUTATION_SOURCE_KEY) ?? []),
+    findings: data
+      .map((f) => {
+        const ev = asRecord(f.evidence);
+        return {
+          id: f.id,
+          title: f.title,
+          severity: oneOf(SEVERITIES, f.severity, 'info'),
+          subject: typeof ev.subject === 'string' ? ev.subject : null,
+        };
+      })
+      .sort((a, b) => severityRank(a.severity) - severityRank(b.severity)),
+  };
+}
+
+/** Avisos 'observation' de abusech (abusech/mapper.ts); los activos listados van primero. */
+export function parseReputationSubjects(notices: Json): ReputationSubjectStatus[] {
+  if (!Array.isArray(notices)) return [];
+  const subjects = notices.flatMap((n): ReputationSubjectStatus[] => {
+    const notice = asRecord(n);
+    if (notice.kind !== 'observation') return [];
+    const d = asRecord(notice.details ?? null);
+    if (typeof d.subject !== 'string') return [];
+    const count = (v: unknown) => (typeof v === 'number' ? v : 0);
+    return [{
+      subject: d.subject,
+      type: d.subjectType === 'ip' ? 'ip' : 'domain',
+      resolvedFrom: stringArray(d.resolvedFrom),
+      urlhausOnline: count(d.urlhausOnline),
+      urlhausTotal: count(d.urlhausTotal),
+      threatfoxIocs: count(d.threatfoxIocs),
+      feodo: typeof d.feodo === 'number' ? d.feodo : null,
+      blocklists: stringArray(d.blocklists),
+    }];
+  });
+  const listed = (s: ReputationSubjectStatus) =>
+    s.urlhausTotal + s.threatfoxIocs + (s.feodo ?? 0) + s.blocklists.length > 0;
+  return subjects.sort(
+    (a, b) => Number(listed(b)) - Number(listed(a)) || a.type.localeCompare(b.type) || a.subject.localeCompare(b.subject),
+  );
 }
 
 /** Una fuente que falló o fue bloqueada no aportó datos, aunque el escaneo terminara. */

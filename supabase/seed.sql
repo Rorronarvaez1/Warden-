@@ -20,7 +20,12 @@ insert into public.sources (source_key, name, risk_domain_id, is_no_contact, lic
   ('email_dns',  'DNS público (correo)',         (select id from public.risk_domains where key = 'email'),         true,  'Registros DNS públicos'),
   ('checkdmarc', 'checkdmarc',                   (select id from public.risk_domains where key = 'email'),         true,  'Apache-2.0'),
   ('gitleaks',   'Gitleaks',                     (select id from public.risk_domains where key = 'secrets'),       true,  'MIT'),
-  ('abusech',    'abuse.ch',                     (select id from public.risk_domains where key = 'reputation'),    true,  null),
+  -- URLhaus, ThreatFox y Feodo Tracker: API Community gratuita bajo uso justo (docs/sources.md).
+  ('abusech',    'abuse.ch',                     (select id from public.risk_domains where key = 'reputation'),    true,  'API Community, uso justo'),
   ('dnstwist',   'dnstwist',                     (select id from public.risk_domains where key = 'impersonation'), true,  'Apache-2.0'),
   -- Shodan es un servicio comercial, no open source: queda registrado pero bloqueado hasta decidirlo.
   ('shodan',     'Shodan',                       (select id from public.risk_domains where key = 'exposure'),      true,  'proprietary');
+
+-- Solo el nombre de la variable de entorno del worker, nunca la llave.
+insert into public.source_credentials (source_key, secret_ref) values
+  ('abusech', 'ABUSECH_AUTH_KEY');

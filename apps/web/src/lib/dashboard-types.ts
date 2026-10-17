@@ -144,6 +144,27 @@ export interface EmailOverview {
   findings: { id: string; title: string; severity: Severity }[];
 }
 
+/** Lo que abuse.ch reportó de un activo en la última corrida de abusech (scan_sources.notices). */
+export interface ReputationSubjectStatus {
+  subject: string;
+  type: 'domain' | 'ip';
+  /** Para IPs: dominios confirmados que resolvieron a ella. */
+  resolvedFrom: string[];
+  urlhausOnline: number;
+  urlhausTotal: number;
+  threatfoxIocs: number;
+  /** null para dominios: Feodo Tracker solo lista IPs. */
+  feodo: number | null;
+  /** Listas (spamhaus_dbl, surbl) en las que URLhaus reporta el host. */
+  blocklists: string[];
+}
+
+export interface ReputationOverview {
+  source: SourceStatus | null;
+  subjects: ReputationSubjectStatus[];
+  findings: { id: string; title: string; severity: Severity; subject: string | null }[];
+}
+
 export interface DashboardData {
   /** 'mock' solo en desarrollo, sin sesión y con WARDEN_DEV_SKIP_AUTH. */
   mode: 'live' | 'mock';
@@ -155,6 +176,7 @@ export interface DashboardData {
   trend: TrendPoint[];
   exposure: ExposureOverview;
   email: EmailOverview;
+  reputation: ReputationOverview;
   /** Fuentes con colector implementado, para habilitarlas y ver su último resultado. */
   sources: SourceStatus[];
   lastScan: ScanSummary | null;

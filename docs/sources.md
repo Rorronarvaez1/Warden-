@@ -19,7 +19,7 @@ Para agregar una fuente:
 | `crtsh` | certs | Por verificar | Consulta logs públicos de Certificate Transparency | **Implementado** (descubrimiento de subdominios) |
 | `checkdmarc` | email | Apache-2.0 | Lee registros DNS públicos (SPF, DMARC, MX) | Pendiente |
 | `gitleaks` | secrets | MIT | Escanea repositorios públicos, no la infraestructura | Pendiente |
-| `abusech` | reputation | Por verificar | Feeds públicos de abuse.ch | Pendiente |
+| `abusech` | reputation | API Community de abuse.ch: gratuita bajo uso justo; el uso comercial puede requerir la API de pago (ver abajo). Requiere `ABUSECH_AUTH_KEY` (gratuita) | Consulta URLhaus y ThreatFox por dominio/IP y descarga la lista de Feodo Tracker; las IPs se obtienen vía `dns.google`. Ninguna petición llega a la empresa | **Implementado** (URLhaus, Spamhaus DBL/SURBL vía URLhaus, ThreatFox y Feodo → hallazgos de `reputation`; deshabilitado por defecto) |
 | `dnstwist` | impersonation | Apache-2.0 | Resuelve dominios parecidos, no el dominio evaluado. Desactivar la descarga de páginas web. | Pendiente |
 | `shodan` | exposure | Propietaria, de pago | Datos pasivos, pero la API completa requiere suscripción | Bloqueado: se usa `internetdb` (gratuito) en su lugar |
 | `email_dns` | email | Registros DNS públicos; cliente implementado en Warden | Consulta únicamente `dns.google` por DoH; no conecta a HTTP/SMTP ni DNS autoritativo de la empresa | **Implementado** (SPF/DMARC/MX → hallazgos de `email`; deshabilitado por defecto) |
@@ -44,7 +44,24 @@ aunque el acceso por API sea de pago. Condiciones:
 - Pendiente: decidir si `credentials` cuenta dentro del dominio `secrets` o como un
   séptimo dominio del KRI (requiere migración).
 
+### abuse.ch (16 de octubre de 2026)
+
+- **URLhaus** (`urlhaus-api.abuse.ch/v1/host/`): URLs de malware alojadas en el dominio o la IP,
+  y el estado del host en Spamhaus DBL y SURBL que URLhaus devuelve en la misma respuesta.
+- **ThreatFox** (`threatfox-api.abuse.ch/api/v1/`, `search_ioc`): indicadores de compromiso.
+  La búsqueda es por subcadena; el mapper solo cuenta IOC cuyo host coincide exactamente.
+- **Feodo Tracker** (`feodotracker.abuse.ch/downloads/ipblocklist.json`): servidores C2 de
+  botnets; se descarga una vez por escaneo y se cruza localmente (no requiere llave).
+- URLhaus y ThreatFox exigen `Auth-Key`. La cuenta en auth.abuse.ch debe ser **de la empresa**.
+  Sin llave, o si cualquier consulta falla, la fuente queda `failed`: un resultado parcial
+  no significa ausencia de listados y permitiría cerrar hallazgos sin revisarlos.
+- Una IP compartida (hosting o CDN) puede estar listada por otro cliente del proveedor:
+  esos hallazgos llevan confianza `medium`; los de dominio, `high`.
+
 ## Pendientes de aclarar
+
+- **abuse.ch:** confirmar con la empresa (y, si hace falta, con abuse.ch) que su uso entra en
+  el "uso justo" de la API Community y no requiere la API comercial.
 
 - **InternetDB:** si Warden pasa a uso comercial, requiere licencia enterprise de Shodan.
 - **Hackviser:** es una plataforma de entrenamiento, no una fuente de datos. Confirmar a qué se refiere.

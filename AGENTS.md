@@ -36,7 +36,7 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 | `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público `email_dns` ✅ (SPF/DMARC/MX); checkdmarc previsto |
 | `certs` | Certificados (CT logs) | crt.sh ✅ |
 | `secrets` | Secretos filtrados en repos públicos | gitleaks |
-| `reputation` | Listas de malware/phishing/botnets | abuse.ch |
+| `reputation` | Listas de malware/phishing/botnets | abuse.ch ✅ (URLhaus, ThreatFox, Feodo) |
 | `impersonation` | Typosquatting | dnstwist |
 
 Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, los CHECK constraints de las migraciones y `supabase/seed.sql`.
@@ -50,10 +50,10 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
 | Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
-| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, panel de exposición, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
+| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, sin hallazgos), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN) y `email_dns` (SPF/DMARC/MX → hallazgos de `email`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
+| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, sin hallazgos), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -124,6 +124,7 @@ Warden-/
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
 │   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
+│   │       ├── abusech/        collector.ts + mapper.ts + tests — URLhaus/ThreatFox/Feodo (reputation)
 │   │       ├── dns/            resolve-ipv4.ts — registros A vía dns.google (DoH)
 │   │       ├── email_dns/      provider.ts (DoH) + collector.ts/mapper.ts — observaciones de correo → hallazgos
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
@@ -350,6 +351,7 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 | `SUPABASE_SECRET_KEY` | worker | Service role — **solo worker** |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | worker | Resúmenes con IA |
 | `SPIDERFOOT_URL` | worker | API de SpiderFoot |
+| `ABUSECH_AUTH_KEY` | worker | Auth-Key gratuita de abuse.ch (URLhaus, ThreatFox); cuenta de la empresa |
 | `HIBP_API_KEY` | worker | API de brechas; requiere suscripción y dominio previamente verificado en HIBP |
 | `QUEUE_VISIBILITY_TIMEOUT` | worker | Segundos de invisibilidad del mensaje (900) |
 

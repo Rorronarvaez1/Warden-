@@ -6,6 +6,7 @@ import { EmailPanel } from '@/components/dashboard/email-panel';
 import { ExposurePanel } from '@/components/dashboard/exposure-panel';
 import { formatDate } from '@/components/dashboard/format';
 import { RecentFindings } from '@/components/dashboard/recent-findings';
+import { ReputationPanel } from '@/components/dashboard/reputation-panel';
 import { ScanControls } from '@/components/dashboard/scan-controls';
 import { ScoreGauge } from '@/components/dashboard/score-gauge';
 import { SourcesCard } from '@/components/dashboard/sources-card';
@@ -20,7 +21,7 @@ export default async function DashboardPage() {
   const state = await loadDashboard();
   if (state.kind === 'no-company') return <CompanySetup />;
 
-  const { company, domains, assets, recentFindings, trend, exposure, email, sources, lastScan, isAdmin, mode } =
+  const { company, domains, assets, recentFindings, trend, exposure, email, reputation, sources, lastScan, isAdmin, mode } =
     state.data;
   const delta =
     company.score === null || company.previousScore === null ? null : company.score - company.previousScore;
@@ -76,6 +77,8 @@ export default async function DashboardPage() {
         <EmailPanel email={email} isAdmin={isAdmin && live} />
         <SourcesCard sources={sources} isAdmin={isAdmin && live} />
       </div>
+
+      <ReputationPanel reputation={reputation} isAdmin={isAdmin && live} />
 
       <div className={styles.rowHalf}>
         <DomainBreakdown domains={domains} />
