@@ -3,6 +3,7 @@ import type { AssetType } from '@warden/shared';
 import { collectAll } from '../pipeline/collect';
 import { persistResults } from '../pipeline/persist';
 import { resolveUnseenFindings } from '../pipeline/resolve';
+import { scoreScan } from '../pipeline/score';
 import type { Db } from '../supabase';
 
 const MAX_ATTEMPTS = 3;
@@ -55,8 +56,9 @@ export async function runScan(
     await persistResults(db, scan, results);
     await resolveUnseenFindings(db, scan);
 
-    // TODO: calcular y guardar el score con @warden/scoring cuando exista el modelo
-    // (docs/scoring-model.md) y encolar report_requests para el resumen con IA.
+    // Después de resolver: los hallazgos que la fuente dejó de observar ya no restan.
+    await scoreScan(db, scan);
+    // TODO: encolar report_requests para el resumen con IA (fase 4 del KRI).
 
     await db
       .from('scans')

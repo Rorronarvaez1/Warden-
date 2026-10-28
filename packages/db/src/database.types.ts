@@ -723,6 +723,7 @@ export type Database = {
         Row: {
           company_id: string
           computed_at: string
+          excluded_domains: string[]
           global_score: number
           grade: string
           id: string
@@ -732,6 +733,7 @@ export type Database = {
         Insert: {
           company_id: string
           computed_at?: string
+          excluded_domains?: string[]
           global_score: number
           grade: string
           id?: string
@@ -741,6 +743,7 @@ export type Database = {
         Update: {
           company_id?: string
           computed_at?: string
+          excluded_domains?: string[]
           global_score?: number
           grade?: string
           id?: string

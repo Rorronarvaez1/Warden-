@@ -1,8 +1,8 @@
 // Formas que consumen los componentes del dashboard. Las llenan los datos reales
 // (dashboard-data.ts) o los de ejemplo (mock-dashboard.ts) cuando no hay sesión en dev.
 //
-// El KRI y las notas son null mientras no exista el modelo de scoring
-// (docs/scoring-model.md): no hay filas en `scores` que mostrar.
+// El KRI y las notas son null hasta que el worker guarde el primer puntaje en `scores`
+// (modelo en docs/scoring-model.md).
 
 import type { AssetType, Confidence, Grade, RiskDomainKey, ScanSourceStatus, ScanStatus, Severity } from '@warden/shared';
 
@@ -40,6 +40,8 @@ export interface DomainScoreRow {
   score: number | null;
   grade: Grade | null;
   findingsCount: number;
+  /** Sin datos en el último escaneo calificado: excluido del KRI y su peso repartido. */
+  excluded: boolean;
 }
 
 export interface FindingRow {

@@ -2,8 +2,7 @@
 // (WARDEN_DEV_SKIP_AUTH=true y sin sesión). Con sesión, el dashboard usa datos reales
 // (dashboard-data.ts).
 //
-// Supuesto: puntaje 0–100 (más alto es mejor). El modelo real está pendiente:
-// ver docs/scoring-model.md.
+// Puntajes 0–100 (más alto es mejor) según docs/scoring-model.md; los valores son inventados.
 
 import {
   DOMAIN_LABELS,
@@ -22,23 +21,24 @@ const company: CompanyOverview = {
   id: 'c1',
   name: 'Empresa Ejemplo',
   primaryDomain: 'empresa-ejemplo.mx',
-  score: 81.3,
-  grade: 'B',
-  previousScore: 79.1,
+  score: 79.4,
+  grade: 'C',
+  previousScore: 78.2,
   lastScanAt: '2026-10-06T14:10:00Z',
   nextScanAt: '2026-10-13T14:00:00Z',
   openFindings: 12,
   openCriticalFindings: 1,
 };
 
-// Los pesos vienen del diagrama de arquitectura. El puntaje global es el promedio ponderado.
+// Pesos de la versión 1 (supabase/seed.sql). El puntaje global es el promedio ponderado
+// de los dominios con datos; secrets aparece sin datos para mostrar la cobertura parcial.
 const domainScores: DomainScoreRow[] = [
-  { key: 'exposure', name: DOMAIN_LABELS.exposure, weight: 25, score: 72.0, grade: 'C', findingsCount: 4 },
-  { key: 'email', name: DOMAIN_LABELS.email, weight: 20, score: 78.0, grade: 'C', findingsCount: 3 },
-  { key: 'certs', name: DOMAIN_LABELS.certs, weight: 15, score: 90.0, grade: 'A', findingsCount: 2 },
-  { key: 'secrets', name: DOMAIN_LABELS.secrets, weight: 15, score: 85.0, grade: 'B', findingsCount: 1 },
-  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 15, score: 92.0, grade: 'A', findingsCount: 1 },
-  { key: 'impersonation', name: DOMAIN_LABELS.impersonation, weight: 10, score: 64.0, grade: 'D', findingsCount: 2 },
+  { key: 'exposure', name: DOMAIN_LABELS.exposure, weight: 25, score: 72.0, grade: 'C', findingsCount: 4, excluded: false },
+  { key: 'email', name: DOMAIN_LABELS.email, weight: 15, score: 78.0, grade: 'C', findingsCount: 3, excluded: false },
+  { key: 'certs', name: DOMAIN_LABELS.certs, weight: 10, score: 90.0, grade: 'A', findingsCount: 2, excluded: false },
+  { key: 'secrets', name: DOMAIN_LABELS.secrets, weight: 20, score: null, grade: null, findingsCount: 1, excluded: true },
+  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 20, score: 92.0, grade: 'A', findingsCount: 1, excluded: false },
+  { key: 'impersonation', name: DOMAIN_LABELS.impersonation, weight: 10, score: 64.0, grade: 'D', findingsCount: 2, excluded: false },
 ];
 
 // Las IPs usan el rango de documentación 203.0.113.0/24 (RFC 5737).
@@ -75,8 +75,8 @@ const trend: TrendPoint[] = [
   { scannedAt: '2026-09-08T14:00:00Z', score: 77.9 },
   { scannedAt: '2026-09-15T14:00:00Z', score: 78.6 },
   { scannedAt: '2026-09-22T14:00:00Z', score: 78.2 },
-  { scannedAt: '2026-09-29T14:05:00Z', score: 79.1 },
-  { scannedAt: '2026-10-06T14:10:00Z', score: 81.3 },
+  { scannedAt: '2026-09-29T14:05:00Z', score: 78.2 },
+  { scannedAt: '2026-10-06T14:10:00Z', score: 79.4 },
 ];
 
 const lastRun = (assetsReturned: number, findingsReturned: number) => ({

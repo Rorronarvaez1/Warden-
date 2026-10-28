@@ -50,11 +50,11 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
 | Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
-| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
+| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial). Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
 | Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
-| Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
+| Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
 | Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
@@ -63,7 +63,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Reportes | 🔴 Pendiente (ya está en la `TopNav`); Configuración ya enlaza a Usuarios |
 | Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
-**No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
+**El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`.
 
 ---
 
@@ -196,7 +196,7 @@ Reglas:
                                   │ runScan:                     │      │ crt.sh, ...  │
                                   │  1. collect  (no-contact)    │      └─────────────┘
                                   │  2. persist  (upsert)        │      ┌─────────────┐
-                                  │  3. score    (TODO)          │ ───▶ │ SpiderFoot  │
+                                  │  3. score    (KRI)           │ ───▶ │ SpiderFoot  │
                                   │  4. report IA (TODO)         │      └─────────────┘
                                   └──────────────────────────────┘ ───▶ OpenRouter (redactado)
 ```
@@ -209,7 +209,9 @@ Reglas:
    - Marca `running`. Carga la empresa y sus activos **confirmados**.
    - **collect** (`pipeline/collect.ts`): por cada colector registrado, aplica `checkCollector`; registra el resultado en `scan_sources` (`ok | failed | skipped | blocked`). Un colector que falla no tumba el escaneo.
    - **persist** (`pipeline/persist.ts`): activos descubiertos → `assets` con `attribution_status = 'pending'` (un analista los confirma). Hallazgos → upsert en `findings` por `(company_id, fingerprint)` **sin tocar el estado de triage**; fuentes en `finding_sources`.
-   - **score / report:** pendientes (TODO en `run-scan.ts`).
+   - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
+   - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
+   - **report:** pendiente (TODO en `run-scan.ts`).
    - Marca `completed` o `failed`.
 4. Tras procesar, `queue_delete`. Si el worker muere, el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
 
@@ -310,10 +312,11 @@ Estilo de código:
 ### Cambiar un prompt de IA
 Crear `packages/ai/src/prompts/<nombre>.v(N+1).ts` y cambiar el import. No modificar la versión anterior: `reports.prompt_version` debe reflejar lo que realmente se usó.
 
-### Implementar el scoring (cuando esté definido)
+### Cambiar el scoring
 - Solo funciones puras en `packages/scoring` (sin BD ni red) para poder recalcular históricos.
-- Entrada: `ScoringFinding[]` + `WeightItem[]`; salida: `ScoreResult`.
-- Persistir en `scores` + `score_domains` desde `run-scan.ts` y luego encolar en `report_requests`.
+- Entrada: `ScoringFinding[]` + `WeightItem[]` + dominios con datos; salida: `ScoreResult | null`.
+- Cambiar puntos o pesos = **nueva versión** en `scoring_weights` (no editar una usada por escaneos). Cambiar la fórmula exige actualizar [docs/scoring-model.md](docs/scoring-model.md).
+- Pendiente: encolar en `report_requests` después de guardar el score.
 
 ---
 
