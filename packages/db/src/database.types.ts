@@ -583,42 +583,51 @@ export type Database = {
       }
       scans: {
         Row: {
+          cancelled_by: string | null
           company_id: string
           created_at: string
+          current_source: string | null
           error_message: string | null
           finished_at: string | null
           id: string
           raw_payload_hash: string | null
           raw_payload_path: string | null
           requested_by: string | null
+          sources_total: number | null
           started_at: string | null
           status: string
           trigger_type: string
           weight_version_id: string | null
         }
         Insert: {
+          cancelled_by?: string | null
           company_id: string
           created_at?: string
+          current_source?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           raw_payload_hash?: string | null
           raw_payload_path?: string | null
           requested_by?: string | null
+          sources_total?: number | null
           started_at?: string | null
           status?: string
           trigger_type: string
           weight_version_id?: string | null
         }
         Update: {
+          cancelled_by?: string | null
           company_id?: string
           created_at?: string
+          current_source?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           raw_payload_hash?: string | null
           raw_payload_path?: string | null
           requested_by?: string | null
+          sources_total?: number | null
           started_at?: string | null
           status?: string
           trigger_type?: string
@@ -626,11 +635,25 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "scans_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scans_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scans_current_source_fkey"
+            columns: ["current_source"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["source_key"]
           },
           {
             foreignKeyName: "scans_requested_by_fkey"
@@ -922,6 +945,7 @@ export type Database = {
         Returns: undefined
       }
       app_role: { Args: never; Returns: string }
+      cancel_scan: { Args: { p_scan_id: string }; Returns: boolean }
       enqueue_due_scans: { Args: never; Returns: number }
       is_admin: { Args: never; Returns: boolean }
       is_member: { Args: never; Returns: boolean }

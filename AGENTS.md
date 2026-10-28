@@ -221,7 +221,8 @@ Reglas:
    - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo.
    - **report (IA):** pendiente (TODO en `run-scan.ts`).
    - Marca `completed` o `failed`.
-4. Tras procesar, `queue_delete`. Si el worker muere, el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
+   - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
+4. Tras procesar, `queue_delete`. Si el worker muere (o se apaga), el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
 
 ### Modelo de datos (resumen)
 

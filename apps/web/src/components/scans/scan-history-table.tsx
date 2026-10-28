@@ -74,7 +74,14 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                               {r.name} · {r.status === 'ok' ? runSummary(r) : SOURCE_RUN_LABELS[r.status]}
                             </span>
                           ))}
-                          {s.sources.length === 0 && <span className={styles.muted}>—</span>}
+                          {s.status === 'running' && (
+                            <span className={styles.tag} style={{ color: 'var(--accent)' }}>
+                              <span className={styles.spinner} aria-hidden />{' '}
+                              {s.currentSource ? `Consultando ${s.currentSource}…` : 'Preparando…'}
+                              {s.sourcesTotal ? ` (${s.sources.length}/${s.sourcesTotal})` : ''}
+                            </span>
+                          )}
+                          {s.sources.length === 0 && s.status !== 'running' && <span className={styles.muted}>—</span>}
                         </span>
                       </td>
                     </tr>

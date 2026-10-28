@@ -1,5 +1,6 @@
 import type { CollectorTarget } from '@warden/collectors';
 import type { AssetType } from '@warden/shared';
+import { isCancellation, watchCancellation } from '../pipeline/cancellation';
 import { collectAll } from '../pipeline/collect';
 import { persistResults } from '../pipeline/persist';
 import { resolveUnseenFindings } from '../pipeline/resolve';
@@ -8,6 +9,7 @@ import { scoreScan } from '../pipeline/score';
 import type { Db } from '../supabase';
 
 const MAX_ATTEMPTS = 3;
+const FINISHED = new Set(['completed', 'failed', 'cancelled']);
 
 export async function runScan(
   db: Db,
@@ -20,17 +22,25 @@ export async function runScan(
     .eq('id', scanId)
     .single();
   if (error) throw error;
-  if (scan.status === 'completed' || scan.status === 'failed') return;
+  // Un escaneo cancelado en cola se descarta aquí; el mensaje se borra igual.
+  if (FINISHED.has(scan.status)) return;
 
   if (opts.attempt > MAX_ATTEMPTS) {
     await markFailed(db, scanId, `abandonado tras ${MAX_ATTEMPTS} intentos`);
     return;
   }
 
-  await db
+  const { data: started } = await db
     .from('scans')
     .update({ status: 'running', started_at: new Date().toISOString() })
-    .eq('id', scanId);
+    .eq('id', scanId)
+    .in('status', ['queued', 'running'])
+    .select('id');
+  // Se canceló entre la lectura y la actualización.
+  if (!started?.length) return;
+
+  const cancellation = watchCancellation(db, scanId);
+  const signal = AbortSignal.any([opts.signal, cancellation.signal]);
 
   try {
     const { data: company, error: companyError } = await db
@@ -53,7 +63,9 @@ export async function runScan(
       assets: (assets ?? []).map((a) => ({ type: a.asset_type as AssetType, value: a.value })),
     };
 
-    const results = await collectAll(db, scanId, target, opts.signal);
+    const results = await collectAll(db, scanId, target, signal);
+    // Un escaneo cancelado no persiste resultados parciales ni se califica.
+    await cancellation.checkNow();
     await persistResults(db, scan, results);
     await resolveUnseenFindings(db, scan);
 
@@ -67,17 +79,28 @@ export async function runScan(
 
     await db
       .from('scans')
-      .update({ status: 'completed', finished_at: new Date().toISOString() })
-      .eq('id', scanId);
+      .update({ status: 'completed', finished_at: new Date().toISOString(), current_source: null })
+      .eq('id', scanId)
+      .eq('status', 'running');
   } catch (err) {
+    if (isCancellation(err) || isCancellation(signal.reason)) {
+      console.log(`[run-scan] ${scanId} cancelado`);
+      return;
+    }
+    // Apagado del worker: sin borrar el mensaje, reaparece al vencer el timeout y se reintenta.
+    if (opts.signal.aborted) throw err;
     console.error(`[run-scan] ${scanId} falló`, err);
     await markFailed(db, scanId, err instanceof Error ? err.message : String(err));
+  } finally {
+    cancellation.stop();
   }
 }
 
 async function markFailed(db: Db, scanId: string, message: string) {
   await db
     .from('scans')
-    .update({ status: 'failed', finished_at: new Date().toISOString(), error_message: message })
-    .eq('id', scanId);
+    .update({ status: 'failed', finished_at: new Date().toISOString(), error_message: message, current_source: null })
+    .eq('id', scanId)
+    // No pisa un escaneo que alguien canceló mientras tanto.
+    .in('status', ['queued', 'running']);
 }

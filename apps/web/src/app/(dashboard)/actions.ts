@@ -175,6 +175,18 @@ export async function requestScan(companyId: string): Promise<ActionResult> {
   return {};
 }
 
+/** Detiene un escaneo en cola o en curso; el worker corta las consultas en vuelo. */
+export async function cancelScan(scanId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('cancel_scan', { p_scan_id: scanId });
+  if (error) return { error: permissionMessage(error) };
+  if (!data) return { error: 'El escaneo ya había terminado' };
+
+  revalidatePath('/');
+  revalidatePath('/scans');
+  return {};
+}
+
 const TRIAGE_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
 type TriageStatus = (typeof TRIAGE_STATUSES)[number];
 

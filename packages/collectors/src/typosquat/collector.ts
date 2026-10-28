@@ -14,11 +14,22 @@ const CONCURRENCY = 8;
  */
 const MAX_FAILURE_RATIO = 0.05;
 
-async function queryAll<T>(items: readonly T[], query: (item: T) => Promise<DohAnswer | undefined>, signal: AbortSignal) {
+async function queryAll<T>(
+  items: readonly T[],
+  query: (item: T) => Promise<DohAnswer | undefined>,
+  signal: AbortSignal,
+  { failFast = false } = {},
+) {
   const answers: (DohAnswer | undefined)[] = [];
   for (let i = 0; i < items.length; i += CONCURRENCY) {
     signal.throwIfAborted();
-    answers.push(...(await Promise.all(items.slice(i, i + CONCURRENCY).map(query))));
+    const batch = await Promise.all(items.slice(i, i + CONCURRENCY).map(query));
+    // Sin respuesta en todo el primer lote, dns.google no está accesible (red que lo bloquea):
+    // seguir costaría un timeout por consulta, varios minutos en total.
+    if (failFast && i === 0 && batch.every((a) => a === undefined)) {
+      throw new Error(`dns.google no respondió a las primeras ${batch.length} consultas; ¿la red bloquea dns.google?`);
+    }
+    answers.push(...batch);
   }
   return answers;
 }
@@ -35,7 +46,7 @@ export const typosquatCollector: Collector = {
     const domain = `${label}.${suffix}`;
     const permutations = generatePermutations(domain, MAX_PERMUTATIONS);
 
-    let answers = await queryAll(permutations, (p) => queryDoh(p.domain, 'A', ctx.signal), ctx.signal);
+    let answers = await queryAll(permutations, (p) => queryDoh(p.domain, 'A', ctx.signal), ctx.signal, { failFast: true });
     // Un reintento para fallos transitorios del resolvedor.
     const retry = permutations.filter((_, i) => answers[i] === undefined);
     if (retry.length > 0) {

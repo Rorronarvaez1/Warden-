@@ -70,6 +70,9 @@ export interface ScanSummary {
   errorMessage: string | null;
   /** Alguna fuente falló o fue bloqueada aunque el escaneo haya terminado. */
   sourceFailures: boolean;
+  startedAt: string | null;
+  /** Avance mientras está en curso: fuente que se consulta y fuentes ya registradas. */
+  progress: { currentSource: string | null; done: number; total: number | null };
 }
 
 /** Una fuente con colector implementado y su resultado en el último escaneo que la registró. */

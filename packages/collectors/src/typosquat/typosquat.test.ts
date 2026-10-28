@@ -75,9 +75,32 @@ describe('typosquatCollector', () => {
     expect(result.findings.map((f) => [f.evidence.lookalike, f.severity])).toEqual([['exampel.com', 'high']]);
   });
 
-  it('falla si dns.google no responde para demasiados parecidos', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('error', { status: 500 })));
+  it('se detiene en el primer lote si dns.google no responde (red que lo bloquea)', async () => {
+    const fetchMock = vi.fn(async () => new Response('error', { status: 500 }));
+    vi.stubGlobal('fetch', fetchMock);
     await expect(typosquatCollector.collect({ companyId: 'c1', primaryDomain: 'example.com', assets: [] }, ctx))
-      .rejects.toThrow('dns.google no respondió');
+      .rejects.toThrow('dns.google no respondió a las primeras 8 consultas');
+    // Un solo lote, no los cientos de consultas con su timeout cada una.
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it('falla si dns.google no responde para demasiados parecidos', async () => {
+    let calls = 0;
+    // El primer lote responde; después todo falla.
+    vi.stubGlobal('fetch', vi.fn(async () => (++calls <= 8 ? json({ Status: 3 }) : new Response('error', { status: 500 }))));
+    await expect(typosquatCollector.collect({ companyId: 'c1', primaryDomain: 'example.com', assets: [] }, ctx))
+      .rejects.toThrow(/dns\.google no respondió para \d+ de \d+ dominios parecidos/);
+  });
+
+  it('se detiene al cancelar el escaneo', async () => {
+    const controller = new AbortController();
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      controller.abort(new Error('cancelado'));
+      return json({ Status: 3 });
+    }));
+    await expect(typosquatCollector.collect(
+      { companyId: 'c1', primaryDomain: 'example.com', assets: [] },
+      { signal: controller.signal, getSecret: () => undefined },
+    )).rejects.toThrow('cancelado');
   });
 });
