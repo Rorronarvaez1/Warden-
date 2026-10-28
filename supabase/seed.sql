@@ -19,10 +19,12 @@ insert into public.sources (source_key, name, risk_domain_id, is_no_contact, lic
   -- Lee SPF/DMARC/MX publicados vía dns.google (DoH); no contacta servidores de la empresa.
   ('email_dns',  'DNS público (correo)',         (select id from public.risk_domains where key = 'email'),         true,  'Registros DNS públicos'),
   ('checkdmarc', 'checkdmarc',                   (select id from public.risk_domains where key = 'email'),         true,  'Apache-2.0'),
+  -- Clona repos públicos de github.com (organizaciones code_org confirmadas); no la infraestructura.
   ('gitleaks',   'Gitleaks',                     (select id from public.risk_domains where key = 'secrets'),       true,  'MIT'),
   -- URLhaus, ThreatFox y Feodo Tracker: API Community gratuita bajo uso justo (docs/sources.md).
   ('abusech',    'abuse.ch',                     (select id from public.risk_domains where key = 'reputation'),    true,  'API Community, uso justo'),
-  ('dnstwist',   'dnstwist',                     (select id from public.risk_domains where key = 'impersonation'), true,  'Apache-2.0'),
+  -- Técnicas de dnstwist implementadas en Warden; solo consulta dns.google (DoH).
+  ('typosquat',  'Dominios parecidos (DNS)',     (select id from public.risk_domains where key = 'impersonation'), true,  'Implementación propia'),
   -- Shodan es un servicio comercial, no open source: queda registrado pero bloqueado hasta decidirlo.
   ('shodan',     'Shodan',                       (select id from public.risk_domains where key = 'exposure'),      true,  'proprietary');
 
