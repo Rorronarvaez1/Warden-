@@ -43,10 +43,10 @@ describe('gitleaksCollector', () => {
     companyId: 'c1', primaryDomain: 'acme.com', assets: values.map((value) => ({ type: 'code_org' as const, value })),
   });
 
-  it('sin organizaciones confirmadas no escanea nada', async () => {
+  it('sin organizaciones confirmadas falla en vez de reportar que no hay secretos', async () => {
     const deps: GitleaksDeps = { listRepos: vi.fn(), scanRepo: vi.fn() };
-    const result = await createGitleaksCollector(deps).collect(target([]), ctx);
-    expect(result.findings).toEqual([]);
+    await expect(createGitleaksCollector(deps).collect(target(['gitlab.com/acme']), ctx))
+      .rejects.toThrow('Sin organizaciones de código');
     expect(deps.listRepos).not.toHaveBeenCalled();
   });
 

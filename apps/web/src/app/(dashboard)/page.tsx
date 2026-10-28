@@ -51,7 +51,7 @@ export default async function DashboardPage() {
           value={company.score === null ? '—' : company.score.toFixed(1)}
           hint={
             company.score === null
-              ? 'modelo de scoring pendiente'
+              ? 'sin escaneos calificados'
               : delta === null
                 ? 'de 100'
                 : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} vs. escaneo anterior`

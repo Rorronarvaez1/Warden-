@@ -25,7 +25,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
       </header>
 
       {points.length === 0 && (
-        <p className={styles.empty}>Sin puntajes todavía: el modelo de scoring está pendiente (docs/scoring-model.md).</p>
+        <p className={styles.empty}>Sin puntajes todavía: aparecerán al completarse un escaneo.</p>
       )}
       {points.length > 0 && <div className={styles.trend}>
         {points.map((p) => (

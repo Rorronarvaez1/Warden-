@@ -105,6 +105,7 @@ export async function loadDashboard(): Promise<DashboardState> {
       score: scored?.score ?? null,
       grade: scored?.grade ?? null,
       findingsCount: openFindings.byDomain.get(key) ?? 0,
+      excluded: latest?.excluded.has(key) ?? false,
     };
   });
 
@@ -214,11 +215,11 @@ async function loadRecentFindings(supabase: Supabase, companyId: string): Promis
   }));
 }
 
-/** Puntajes guardados por el worker. Hoy no hay ninguno: el modelo de scoring está pendiente. */
+/** Puntajes guardados por el worker (pipeline/score.ts). */
 async function loadScores(supabase: Supabase, companyId: string) {
   const { data, error } = await supabase
     .from('scores')
-    .select('global_score, grade, computed_at, score_domains(domain_score, grade, risk_domains!inner(key))')
+    .select('global_score, grade, computed_at, excluded_domains, score_domains(domain_score, grade, risk_domains!inner(key))')
     .eq('company_id', companyId)
     .order('computed_at', { ascending: false })
     .limit(TREND_POINTS);
@@ -232,6 +233,7 @@ async function loadScores(supabase: Supabase, companyId: string) {
     ? {
         score: Number(first.global_score),
         grade: asGrade(first.grade),
+        excluded: new Set(first.excluded_domains),
         domains: new Map(
           first.score_domains.map((d) => [
             d.risk_domains.key as RiskDomainKey,
@@ -567,7 +569,8 @@ function severityRank(s: Severity): number {
   return SEVERITIES.indexOf(s);
 }
 
-function asGrade(value: string): Grade {
+/** grade es char(1) en BD: se recorta por si viniera con relleno. */
+export function asGrade(value: string): Grade {
   return oneOf(GRADES, value.trim(), 'F');
 }
 

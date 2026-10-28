@@ -85,10 +85,9 @@ export function createGitleaksCollector(deps: GitleaksDeps = { listRepos, scanRe
         if (owner) owners.push(owner);
         else notices.push({ kind: 'observation', subject: asset.value, message: `Solo se admiten organizaciones de github.com: ${asset.value}`, details: { value: asset.value } });
       }
+      // Sin repos que revisar no hay datos de `secrets`: un 'ok' calificaría el dominio con 100.
       if (owners.length === 0) {
-        notices.push({ kind: 'observation', subject: target.primaryDomain,
-          message: 'Sin organizaciones de código confirmadas en Activos: no hay repositorios que revisar', details: {} });
-        return { assets: [], findings: [], notices };
+        throw new Error('Sin organizaciones de código (github.com/<org>) confirmadas en Activos: no hay repositorios que revisar');
       }
 
       const candidates = [];

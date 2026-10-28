@@ -4,13 +4,18 @@ import { GRADE_COLORS, GradeBadge } from './grade-badge';
 
 export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
   const scored = domains.some((d) => d.score !== null);
+  const excluded = domains.filter((d) => d.excluded).length;
   return (
     <section className={styles.card}>
       <header className={styles.cardHeader}>
         <div>
           <h2 className={styles.cardTitle}>Riesgo por dominio</h2>
           <p className={styles.cardHint}>
-            {scored ? 'Último escaneo · peso en el KRI' : 'Hallazgos abiertos · notas pendientes del modelo de scoring'}
+            {!scored
+              ? 'Hallazgos abiertos · las notas aparecen al completarse un escaneo'
+              : excluded > 0
+                ? `Último escaneo · cobertura parcial: ${excluded} sin datos, su peso se reparte entre los demás`
+                : 'Último escaneo · peso en el KRI'}
           </p>
         </div>
       </header>
@@ -24,7 +29,16 @@ export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className={styles.domainMeta}>{d.findingsCount} hallazgos</span>
-                {d.grade ? <GradeBadge grade={d.grade} /> : <span className={styles.domainMeta}>sin nota</span>}
+                {d.grade ? (
+                  <GradeBadge grade={d.grade} />
+                ) : (
+                  <span
+                    className={styles.domainMeta}
+                    title={d.excluded ? 'Ninguna fuente de este dominio terminó bien en el último escaneo' : undefined}
+                  >
+                    {d.excluded ? 'sin datos' : 'sin nota'}
+                  </span>
+                )}
               </span>
             </div>
             <div className={styles.bar}>

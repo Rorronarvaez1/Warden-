@@ -1,5 +1,4 @@
--- Datos base de catálogos. Los pesos del KRI NO se siembran: el modelo de scoring
--- está pendiente de definir (docs/scoring-model.md).
+-- Datos base de catálogos y la versión 1 de pesos del KRI (docs/scoring-model.md).
 
 insert into public.risk_domains (key, name, description) values
   ('exposure',      'Exposición de servicios',  'Servicios y puertos visibles públicamente, según fuentes pasivas.'),
@@ -31,3 +30,25 @@ insert into public.sources (source_key, name, risk_domain_id, is_no_contact, lic
 -- Solo el nombre de la variable de entorno del worker, nunca la llave.
 insert into public.source_credentials (source_key, secret_ref) values
   ('abusech', 'ABUSECH_AUTH_KEY');
+
+-- Versión 1 de pesos, activa. Los pesos por dominio son los de la propuesta aprobada
+-- (suman 100). SUPUESTO (pendiente de validar con el equipo): puntos por severidad y
+-- factores por confianza, iguales en todos los dominios.
+insert into public.scoring_weights (version, is_active) values (1, true);
+
+insert into public.scoring_weight_items (weight_version_id, risk_domain_id, weight, severity_points, confidence_factors)
+select
+  (select id from public.scoring_weights where version = 1),
+  d.id,
+  w.weight,
+  '{"critical": 40, "high": 20, "medium": 8, "low": 3, "info": 0}'::jsonb,
+  '{"high": 1, "medium": 0.75, "low": 0.5}'::jsonb
+from (values
+  ('exposure', 25),
+  ('email', 15),
+  ('certs', 10),
+  ('secrets', 20),
+  ('reputation', 20),
+  ('impersonation', 10)
+) as w (key, weight)
+join public.risk_domains d on d.key = w.key;
