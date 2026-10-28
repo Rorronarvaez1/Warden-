@@ -92,6 +92,8 @@ const ASSET_PATTERNS = {
   ip: /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/,
   ip_range: /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\/(?:3[0-2]|[12]?\d)$/,
   asn: /^AS\d{1,10}$/,
+  // Solo GitHub: gitleaks clona desde github.com (docs/sources.md).
+  code_org: /^github\.com\/[a-z0-9](?:[a-z0-9-]{0,38})$/,
 } as const;
 
 const ASSET_EXAMPLES: Record<keyof typeof ASSET_PATTERNS, string> = {
@@ -100,6 +102,7 @@ const ASSET_EXAMPLES: Record<keyof typeof ASSET_PATTERNS, string> = {
   ip: '203.0.113.10',
   ip_range: '203.0.113.0/24',
   asn: 'AS64500',
+  code_org: 'github.com/empresa',
 };
 
 /**
@@ -112,6 +115,7 @@ export async function addAsset(_prev: ActionResult, formData: FormData): Promise
   const assetType = type as keyof typeof ASSET_PATTERNS;
   let value = String(formData.get('value') ?? '').trim();
   value = assetType === 'asn' ? value.toUpperCase().replace(/^(\d)/, 'AS$1') : value.toLowerCase();
+  if (assetType === 'code_org') value = value.replace(/^https?:\/\//, '').replace(/\/+$/, '');
   if (assetType === 'domain' || assetType === 'subdomain') {
     value = value.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
   }

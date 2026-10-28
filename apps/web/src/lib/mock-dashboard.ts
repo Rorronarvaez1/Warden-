@@ -56,7 +56,7 @@ const assets: AssetRow[] = [
 
 const recentFindings: FindingRow[] = [
   { id: 'f1', indicator: 'RDP (3389) visible en 203.0.113.10', domain: 'exposure', severity: 'critical', confidence: 'high', source: 'SpiderFoot', observedAt: '2026-10-06T14:10:00Z' },
-  { id: 'f2', indicator: 'Dominio parecido: empresa-ejemp1o.mx', domain: 'impersonation', severity: 'high', confidence: 'medium', source: 'dnstwist', observedAt: '2026-10-06T14:10:00Z' },
+  { id: 'f2', indicator: 'Dominio parecido: empresa-ejemp1o.mx', domain: 'impersonation', severity: 'high', confidence: 'medium', source: 'typosquat', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f3', indicator: 'DMARC con política p=none', domain: 'email', severity: 'medium', confidence: 'high', source: 'DNS público', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f4', indicator: 'SSH (22) visible en vpn.empresa-ejemplo.mx', domain: 'exposure', severity: 'medium', confidence: 'medium', source: 'SpiderFoot', observedAt: '2026-09-29T14:05:00Z' },
   { id: 'f5', indicator: 'Certificado de portal.empresa-ejemplo.mx vence en 9 días', domain: 'certs', severity: 'low', confidence: 'high', source: 'crt.sh', observedAt: '2026-10-06T14:10:00Z' },

@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<AssetType, string> = {
   ip: 'IP',
   ip_range: 'Rango IP',
   asn: 'ASN',
+  code_org: 'Org. de código',
 };
 
 const TYPE_PLACEHOLDERS: Record<AssetType, string> = {
@@ -24,6 +25,7 @@ const TYPE_PLACEHOLDERS: Record<AssetType, string> = {
   ip: '203.0.113.10',
   ip_range: '203.0.113.0/24',
   asn: 'AS64500',
+  code_org: 'github.com/empresa',
 };
 
 const STATUS_LABELS: Record<AttributionStatus, string> = {

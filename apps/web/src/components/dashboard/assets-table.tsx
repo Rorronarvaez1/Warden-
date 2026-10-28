@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<AssetType, string> = {
   ip: 'IP',
   ip_range: 'Rango IP',
   asn: 'ASN',
+  code_org: 'Org. de código',
 };
 
 const STATUS_LABELS: Record<AttributionStatus, string> = {

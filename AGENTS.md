@@ -34,10 +34,10 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 |---|---|---|
 | `exposure` | Exposición de servicios | Shodan InternetDB ✅ (SpiderFoot pasivo previsto) |
 | `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público `email_dns` ✅ (SPF/DMARC/MX); checkdmarc previsto |
-| `certs` | Certificados (CT logs) | crt.sh ✅ |
-| `secrets` | Secretos filtrados en repos públicos | gitleaks |
+| `certs` | Certificados (CT logs + CAA) | crt.sh ✅ |
+| `secrets` | Secretos filtrados en repos públicos | gitleaks ✅ (repos de activos `code_org`) |
 | `reputation` | Listas de malware/phishing/botnets | abuse.ch ✅ (URLhaus, ThreatFox, Feodo) |
-| `impersonation` | Typosquatting | dnstwist |
+| `impersonation` | Typosquatting | `typosquat` ✅ (técnicas de dnstwist, solo vía dns.google) |
 
 Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, los CHECK constraints de las migraciones y `supabase/seed.sql`.
 
@@ -53,7 +53,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, sin hallazgos), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
+| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -122,10 +122,12 @@ Warden-/
 │   │       ├── registry.ts     Mapa de colectores activos
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
-│   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
+│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + tests
+│   │       ├── typosquat/      fuzz.ts (permutaciones) + collector.ts/mapper.ts + tests (impersonation)
+│   │       ├── gitleaks/       collector.ts (GitHub API + git + gitleaks) + mapper.ts + tests (secrets)
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
 │   │       ├── abusech/        collector.ts + mapper.ts + tests — URLhaus/ThreatFox/Feodo (reputation)
-│   │       ├── dns/            resolve-ipv4.ts — registros A vía dns.google (DoH)
+│   │       ├── dns/            resolve-ipv4.ts + doh.ts — consultas vía dns.google (DoH)
 │   │       ├── email_dns/      provider.ts (DoH) + collector.ts/mapper.ts — observaciones de correo → hallazgos
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido

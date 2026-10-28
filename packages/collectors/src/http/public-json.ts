@@ -1,6 +1,6 @@
 const ALLOWED_HOSTS = new Set([
   'dns.google', 'haveibeenpwned.com', 'internetdb.shodan.io', 'www.cisa.gov', 'api.first.org',
-  'urlhaus-api.abuse.ch', 'threatfox-api.abuse.ch', 'feodotracker.abuse.ch',
+  'urlhaus-api.abuse.ch', 'threatfox-api.abuse.ch', 'feodotracker.abuse.ch', 'api.github.com',
 ]);
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 

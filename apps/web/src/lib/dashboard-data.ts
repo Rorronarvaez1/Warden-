@@ -46,7 +46,7 @@ export const REPUTATION_SOURCE_KEY = 'abusech';
  * @warden/collectors (AGENTS.md §4), así que se mantiene a mano: habilitar una fuente sin
  * colector no haría nada.
  */
-export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, REPUTATION_SOURCE_KEY, 'crtsh'] as const;
+export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, REPUTATION_SOURCE_KEY, 'crtsh', 'typosquat', 'gitleaks'] as const;
 export type ImplementedSource = (typeof IMPLEMENTED_SOURCES)[number];
 
 const RECENT_FINDINGS = 8;

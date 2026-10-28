@@ -20,7 +20,8 @@ export type Confidence = (typeof CONFIDENCES)[number];
 export const GRADES = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 export type Grade = (typeof GRADES)[number];
 
-export const ASSET_TYPES = ['domain', 'subdomain', 'ip', 'ip_range', 'asn'] as const;
+// code_org: organización o usuario de GitHub de la empresa (github.com/<nombre>); la usa gitleaks.
+export const ASSET_TYPES = ['domain', 'subdomain', 'ip', 'ip_range', 'asn', 'code_org'] as const;
 export type AssetType = (typeof ASSET_TYPES)[number];
 
 export const FINDING_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
