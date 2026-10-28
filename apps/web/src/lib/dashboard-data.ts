@@ -34,6 +34,7 @@ import {
   type TrendPoint,
 } from './dashboard-types';
 import { mockDashboard } from './mock-dashboard';
+import { loadRecentAlerts } from './alerts';
 import { createClient } from './supabase/server';
 
 /** Fuente del dominio `exposure` con colector implementado (packages/collectors/src/internetdb). */
@@ -79,7 +80,7 @@ export async function loadDashboard(): Promise<DashboardState> {
   ]);
   if (!company) return { kind: 'no-company', isAdmin: isAdmin === true };
 
-  const [assets, openFindings, recent, scores, lastScan, schedule, weights, sourceRuns] = await Promise.all([
+  const [assets, openFindings, recent, scores, lastScan, schedule, weights, sourceRuns, alerts] = await Promise.all([
     loadAssets(supabase, company.id),
     loadOpenFindingCounts(supabase, company.id),
     loadRecentFindings(supabase, company.id),
@@ -88,6 +89,7 @@ export async function loadDashboard(): Promise<DashboardState> {
     supabase.from('schedules').select('next_run_at, is_active').eq('company_id', company.id).maybeSingle(),
     loadActiveWeights(supabase),
     loadSourceRuns(supabase, company.id),
+    loadRecentAlerts(supabase, company.id, 1),
   ]);
   const [exposure, email, reputation] = await Promise.all([
     loadExposure(supabase, company.id, sourceRuns),
@@ -135,6 +137,8 @@ export async function loadDashboard(): Promise<DashboardState> {
       reputation,
       sources: sourceRuns.statuses,
       lastScan: lastScan.latest,
+      // Solo si la alerta es del puntaje más reciente: una vieja ya se resolvió o se reemplazó.
+      latestAlert: alerts[0] && alerts[0].at === scores.trend.at(-1)?.scannedAt ? alerts[0] : null,
     },
   };
 }
@@ -226,7 +230,7 @@ async function loadScores(supabase: Supabase, companyId: string) {
   if (error) throw error;
 
   const trend: TrendPoint[] = data
-    .map((s) => ({ scannedAt: s.computed_at, score: Number(s.global_score) }))
+    .map((s) => ({ scannedAt: s.computed_at, score: Number(s.global_score), grade: asGrade(s.grade) }))
     .reverse();
   const first = data[0];
   const latest = first

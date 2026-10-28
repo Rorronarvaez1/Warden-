@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AssetsTable } from '@/components/dashboard/assets-table';
 import { CompanySetup } from '@/components/dashboard/company-setup';
 import styles from '@/components/dashboard/dashboard.module.css';
@@ -12,6 +13,7 @@ import { ScoreGauge } from '@/components/dashboard/score-gauge';
 import { SourcesCard } from '@/components/dashboard/sources-card';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { TrendChart } from '@/components/dashboard/trend-chart';
+import { alertText } from '@/components/reports/alert-text';
 import { loadDashboard } from '@/lib/dashboard-data';
 
 // Lee Supabase en cada request: los escaneos del worker cambian los datos.
@@ -21,7 +23,7 @@ export default async function DashboardPage() {
   const state = await loadDashboard();
   if (state.kind === 'no-company') return <CompanySetup />;
 
-  const { company, domains, assets, recentFindings, trend, exposure, email, reputation, sources, lastScan, isAdmin, mode } =
+  const { company, domains, assets, recentFindings, trend, exposure, email, reputation, sources, lastScan, isAdmin, mode, latestAlert } =
     state.data;
   const delta =
     company.score === null || company.previousScore === null ? null : company.score - company.previousScore;
@@ -44,6 +46,15 @@ export default async function DashboardPage() {
         </div>
         {live && <ScanControls companyId={company.id} lastScan={lastScan} />}
       </div>
+
+      {latestAlert && (
+        <p className={styles.notice} style={{ color: 'var(--grade-f)', borderLeft: '3px solid var(--grade-f)' }}>
+          <strong>Alerta:</strong> {alertText(latestAlert)} ·{' '}
+          <Link href={`/reports/${latestAlert.scoreId}`} className={styles.linkButton}>
+            Ver reporte
+          </Link>
+        </p>
+      )}
 
       <div className={styles.statsGrid}>
         <StatCard
@@ -73,12 +84,13 @@ export default async function DashboardPage() {
 
       <ExposurePanel exposure={exposure} isAdmin={isAdmin && live} />
 
+      {/* Reputación junto a Fuentes: su tabla crece con los activos y llena la altura de la columna. */}
       <div className={styles.rowWide}>
-        <EmailPanel email={email} isAdmin={isAdmin && live} />
+        <ReputationPanel reputation={reputation} isAdmin={isAdmin && live} />
         <SourcesCard sources={sources} isAdmin={isAdmin && live} />
       </div>
 
-      <ReputationPanel reputation={reputation} isAdmin={isAdmin && live} />
+      <EmailPanel email={email} isAdmin={isAdmin && live} />
 
       <div className={styles.rowHalf}>
         <DomainBreakdown domains={domains} />
