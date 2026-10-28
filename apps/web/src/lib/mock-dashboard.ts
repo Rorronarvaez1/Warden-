@@ -167,5 +167,7 @@ export const mockDashboard: DashboardData = {
     finishedAt: '2026-10-06T14:10:00Z',
     errorMessage: null,
     sourceFailures: false,
+    startedAt: '2026-10-06T14:00:05Z',
+    progress: { currentSource: null, done: 6, total: 6 },
   },
 };

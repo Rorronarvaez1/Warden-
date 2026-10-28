@@ -261,7 +261,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
   const [latestRes, completedRes] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, status, created_at, finished_at, error_message, scan_sources(status)')
+      .select('id, status, created_at, started_at, finished_at, error_message, sources_total, current:sources!scans_current_source_fkey(name), scan_sources(status)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -286,6 +286,8 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
         finishedAt: s.finished_at,
         errorMessage: s.error_message,
         sourceFailures: s.scan_sources.some((r) => isSourceFailure(r.status)),
+        startedAt: s.started_at,
+        progress: { currentSource: s.current?.name ?? null, done: s.scan_sources.length, total: s.sources_total },
       }
     : null;
   return { latest, lastCompletedAt: completedRes.data?.finished_at ?? null };

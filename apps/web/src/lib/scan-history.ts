@@ -50,6 +50,9 @@ export interface ScanHistoryRow {
   finishedAt: string | null;
   errorMessage: string | null;
   sources: ScanSourceRun[];
+  /** Fuente que el worker consulta ahora (solo en curso) y total de colectores. */
+  currentSource: string | null;
+  sourcesTotal: number | null;
   /** null si el escaneo no se calificó (anterior al scoring, fallido o sin dominios con datos). */
   score: ScanScore | null;
 }
@@ -74,7 +77,7 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
     supabase
       .from('scans')
       .select(
-        'id, status, trigger_type, created_at, started_at, finished_at, error_message, scan_sources(source_key, status, items_returned, assets_returned, findings_returned, notices, latency_ms, message), scores(global_score, grade, excluded_domains, score_domains(domain_score, grade, risk_domains!inner(key)))',
+        'id, status, trigger_type, created_at, started_at, finished_at, error_message, sources_total, current:sources!scans_current_source_fkey(name), scan_sources(source_key, status, items_returned, assets_returned, findings_returned, notices, latency_ms, message), scores(global_score, grade, excluded_domains, score_domains(domain_score, grade, risk_domains!inner(key)))',
       )
       .eq('company_id', company.id)
       .order('created_at', { ascending: false })
@@ -114,6 +117,8 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
       startedAt: s.started_at,
       finishedAt: s.finished_at,
       errorMessage: s.error_message,
+      currentSource: s.current?.name ?? null,
+      sourcesTotal: s.sources_total,
       sources: s.scan_sources
         .map((r) => ({
           sourceKey: r.source_key,
@@ -150,6 +155,8 @@ export function latestScanSummary(scans: ScanHistoryRow[]): ScanSummary | null {
         finishedAt: s.finishedAt,
         errorMessage: s.errorMessage,
         sourceFailures: s.sources.some((r) => isSourceFailure(r.status)),
+        startedAt: s.startedAt,
+        progress: { currentSource: s.currentSource, done: s.sources.length, total: s.sourcesTotal },
       }
     : null;
 }

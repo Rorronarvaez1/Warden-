@@ -34,7 +34,8 @@ export type AssetType = (typeof ASSET_TYPES)[number];
 export const FINDING_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
 export type FindingStatus = (typeof FINDING_STATUSES)[number];
 
-export const SCAN_STATUSES = ['queued', 'running', 'completed', 'failed'] as const;
+// cancelled: un miembro lo detuvo (cancel_scan); no persiste resultados ni se califica.
+export const SCAN_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
 export type ScanStatus = (typeof SCAN_STATUSES)[number];
 
 export const SCAN_SOURCE_STATUSES = ['ok', 'failed', 'skipped', 'blocked'] as const;

@@ -22,6 +22,7 @@
    - **score** (`pipeline/score.ts`): calcula el KRI con `@warden/scoring` sobre los hallazgos `open` y la versión de pesos del escaneo. Solo cuentan los dominios con alguna fuente `ok`; los demás quedan en `scores.excluded_domains` (ver `scoring-model.md`).
    - **alerts** (`pipeline/alerts.ts`): si la nota global baja respecto al puntaje anterior (`grade_drop`) o cruza el umbral de `alert_settings` (`threshold_crossed`), registra una alerta con canal `in_app`. El envío por correo o webhook aún no existe.
 4. Si el worker muere a mitad del escaneo, el mensaje reaparece al vencer `QUEUE_VISIBILITY_TIMEOUT`. Después de 3 intentos, el escaneo se marca como `failed`.
+5. Un miembro puede cancelar un escaneo en cola o en curso (`cancel_scan` → `status = 'cancelled'`). El worker revisa el estado cada 3 s, aborta las consultas en vuelo y no persiste ni califica los resultados parciales.
 
 ## Seguridad
 
