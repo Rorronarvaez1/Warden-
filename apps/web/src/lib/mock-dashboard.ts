@@ -4,6 +4,7 @@
 //
 // Puntajes 0–100 (más alto es mejor) según docs/scoring-model.md; los valores son inventados.
 
+import { gradeFor } from '@warden/shared';
 import {
   DOMAIN_LABELS,
   type AssetRow,
@@ -64,20 +65,22 @@ const recentFindings: FindingRow[] = [
 ];
 
 // KRI de los últimos 12 escaneos semanales.
-const trend: TrendPoint[] = [
-  { scannedAt: '2026-07-21T14:00:00Z', score: 74.0 },
-  { scannedAt: '2026-07-28T14:00:00Z', score: 74.8 },
-  { scannedAt: '2026-08-04T14:00:00Z', score: 74.1 },
-  { scannedAt: '2026-08-11T14:00:00Z', score: 75.9 },
-  { scannedAt: '2026-08-18T14:00:00Z', score: 76.5 },
-  { scannedAt: '2026-08-25T14:00:00Z', score: 76.0 },
-  { scannedAt: '2026-09-01T14:00:00Z', score: 77.4 },
-  { scannedAt: '2026-09-08T14:00:00Z', score: 77.9 },
-  { scannedAt: '2026-09-15T14:00:00Z', score: 78.6 },
-  { scannedAt: '2026-09-22T14:00:00Z', score: 78.2 },
-  { scannedAt: '2026-09-29T14:05:00Z', score: 78.2 },
-  { scannedAt: '2026-10-06T14:10:00Z', score: 79.4 },
-];
+const trend: TrendPoint[] = (
+  [
+    { scannedAt: '2026-07-21T14:00:00Z', score: 74.0 },
+    { scannedAt: '2026-07-28T14:00:00Z', score: 74.8 },
+    { scannedAt: '2026-08-04T14:00:00Z', score: 74.1 },
+    { scannedAt: '2026-08-11T14:00:00Z', score: 75.9 },
+    { scannedAt: '2026-08-18T14:00:00Z', score: 76.5 },
+    { scannedAt: '2026-08-25T14:00:00Z', score: 76.0 },
+    { scannedAt: '2026-09-01T14:00:00Z', score: 77.4 },
+    { scannedAt: '2026-09-08T14:00:00Z', score: 77.9 },
+    { scannedAt: '2026-09-15T14:00:00Z', score: 78.6 },
+    { scannedAt: '2026-09-22T14:00:00Z', score: 78.2 },
+    { scannedAt: '2026-09-29T14:05:00Z', score: 78.2 },
+    { scannedAt: '2026-10-06T14:10:00Z', score: 79.4 },
+  ] satisfies Omit<TrendPoint, 'grade'>[]
+).map((p) => ({ ...p, grade: gradeFor(p.score) }));
 
 const lastRun = (assetsReturned: number, findingsReturned: number) => ({
   status: 'ok' as const,
@@ -156,6 +159,7 @@ export const mockDashboard: DashboardData = {
     findings: [{ id: 'm1', title: 'DMARC de empresa-ejemplo.mx solo monitorea (p=none): no bloquea suplantación', severity: 'low' }],
   },
   sources,
+  latestAlert: null,
   lastScan: {
     id: 's1',
     status: 'completed',

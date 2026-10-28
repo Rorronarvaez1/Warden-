@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './top-nav.module.css';
 
-// Reportes está pendiente; el resto existe.
 const NAV = [
   { href: '/', label: 'Dashboard' },
   { href: '/assets', label: 'Activos' },

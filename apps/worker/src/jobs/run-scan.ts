@@ -3,6 +3,7 @@ import type { AssetType } from '@warden/shared';
 import { collectAll } from '../pipeline/collect';
 import { persistResults } from '../pipeline/persist';
 import { resolveUnseenFindings } from '../pipeline/resolve';
+import { raiseScoreAlert } from '../pipeline/alerts';
 import { scoreScan } from '../pipeline/score';
 import type { Db } from '../supabase';
 
@@ -57,7 +58,11 @@ export async function runScan(
     await resolveUnseenFindings(db, scan);
 
     // Después de resolver: los hallazgos que la fuente dejó de observar ya no restan.
-    await scoreScan(db, scan);
+    const score = await scoreScan(db, scan);
+    if (score) {
+      // Un reintento borra el puntaje anterior y con él sus alertas (on delete cascade).
+      await raiseScoreAlert(db, { id: score.scoreId, companyId: scan.company_id, grade: score.grade });
+    }
     // TODO: encolar report_requests para el resumen con IA (fase 4 del KRI).
 
     await db

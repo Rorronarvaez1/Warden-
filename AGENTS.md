@@ -50,18 +50,20 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
 | Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
-| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial). Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
+| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
 | Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
 | Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
+| Página Escaneos (`/scans`) | ✅ Historial con estado, KRI y resultado por fuente (`lib/scan-history.ts`) |
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
-| Página Reportes | 🔴 Pendiente (ya está en la `TopNav`); Configuración ya enlaza a Usuarios |
-| Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
+| Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen con IA reservado (pendiente) |
+| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
+| Alertas | 🟡 El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`), canal `in_app`. Envío por correo/webhook pendiente |
+| Outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
 **El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`.
 
@@ -95,12 +97,17 @@ Warden-/
 │   │       │   ├── layout.tsx           Root layout (lang="es")
 │   │       │   └── globals.css          Tokens de color (--bg, --grade-a … --grade-f)
 │   │       ├── components/              Componentes UI + *.module.css
-│   │       │   └── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
+│   │       │   ├── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
+│   │       │   ├── reports/             Lista y vista imprimible de reportes, alertas
+│   │       │   └── settings/            Pesos del KRI y reglas de alerta
 │   │       ├── lib/
 │   │       │   ├── supabase/client.ts   Cliente para Client Components
 │   │       │   ├── supabase/server.ts   Cliente para Server Components / Route Handlers
 │   │       │   ├── dashboard-types.ts   Formas que consumen los componentes del dashboard
 │   │       │   ├── dashboard-data.ts    loadDashboard(): consultas a Supabase con la sesión (RLS)
+│   │       │   ├── reports.ts           Reportes por escaneo calificado (scores)
+│   │       │   ├── alerts.ts            Alertas recientes
+│   │       │   ├── scoring-settings.ts  Versiones de pesos y alert_settings
 │   │       │   └── mock-dashboard.ts    Datos de ejemplo (solo dev sin sesión)
 │   │       └── proxy.ts                 "Middleware" de Next 16: refresca sesión, redirige a /login
 │   └── worker/                 @warden/worker — consumidor de colas
@@ -197,7 +204,7 @@ Reglas:
                                   │  1. collect  (no-contact)    │      └─────────────┘
                                   │  2. persist  (upsert)        │      ┌─────────────┐
                                   │  3. score    (KRI)           │ ───▶ │ SpiderFoot  │
-                                  │  4. report IA (TODO)         │      └─────────────┘
+                                  │  4. alerts + report IA (TODO)│      └─────────────┘
                                   └──────────────────────────────┘ ───▶ OpenRouter (redactado)
 ```
 
@@ -211,7 +218,8 @@ Reglas:
    - **persist** (`pipeline/persist.ts`): activos descubiertos → `assets` con `attribution_status = 'pending'` (un analista los confirma). Hallazgos → upsert en `findings` por `(company_id, fingerprint)` **sin tocar el estado de triage**; fuentes en `finding_sources`.
    - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
    - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
-   - **report:** pendiente (TODO en `run-scan.ts`).
+   - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo.
+   - **report (IA):** pendiente (TODO en `run-scan.ts`).
    - Marca `completed` o `failed`.
 4. Tras procesar, `queue_delete`. Si el worker muere, el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
 

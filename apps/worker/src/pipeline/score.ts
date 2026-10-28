@@ -62,7 +62,7 @@ export function toWeightItems(rows: readonly WeightItemRow[]): WeightItem[] {
  * entra al puntaje si alguna de sus fuentes terminó 'ok' en este escaneo.
  * Devuelve null si no se pudo calificar (sin versión de pesos o sin dominios con datos).
  */
-export async function scoreScan(db: Db, scan: ScanRow): Promise<ScoreResult | null> {
+export async function scoreScan(db: Db, scan: ScanRow): Promise<(ScoreResult & { scoreId: string }) | null> {
   if (!scan.weight_version_id) {
     console.warn(`[score] ${scan.id} sin versión de pesos activa al encolarse: no se califica`);
     return null;
@@ -126,7 +126,7 @@ export async function scoreScan(db: Db, scan: ScanRow): Promise<ScoreResult | nu
     const { error } = await db.from('score_domains').insert(rows);
     if (error) throw error;
   }
-  return result;
+  return { ...result, scoreId: score.id };
 }
 
 async function loadOpenFindings(db: Db, companyId: string): Promise<ScoringFinding[]> {

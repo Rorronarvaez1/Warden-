@@ -20,6 +20,13 @@ export type Confidence = (typeof CONFIDENCES)[number];
 export const GRADES = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 export type Grade = (typeof GRADES)[number];
 
+/** Puntaje mínimo (0–100) de cada nota; por debajo de E es F (docs/scoring-model.md). */
+export const GRADE_THRESHOLDS: readonly (readonly [Grade, number])[] = [['A', 90], ['B', 80], ['C', 70], ['D', 60], ['E', 50]];
+
+export function gradeFor(score: number): Grade {
+  return GRADE_THRESHOLDS.find(([, min]) => score >= min)?.[0] ?? 'F';
+}
+
 // code_org: organización o usuario de GitHub de la empresa (github.com/<nombre>); la usa gitleaks.
 export const ASSET_TYPES = ['domain', 'subdomain', 'ip', 'ip_range', 'asn', 'code_org'] as const;
 export type AssetType = (typeof ASSET_TYPES)[number];
@@ -32,6 +39,20 @@ export type ScanStatus = (typeof SCAN_STATUSES)[number];
 
 export const SCAN_SOURCE_STATUSES = ['ok', 'failed', 'skipped', 'blocked'] as const;
 export type ScanSourceStatus = (typeof SCAN_SOURCE_STATUSES)[number];
+
+// grade_drop: la nota global bajó respecto al escaneo calificado anterior.
+// threshold_crossed: la nota quedó por debajo del umbral de alert_settings.
+export const ALERT_TYPES = ['grade_drop', 'threshold_crossed'] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+
+// in_app: solo visible en la web; email y webhook aún no tienen envío implementado.
+export const ALERT_CHANNELS = ['email', 'webhook', 'in_app'] as const;
+export type AlertChannel = (typeof ALERT_CHANNELS)[number];
+
+/** true si `a` es peor nota que `b` (A es la mejor). */
+export function isWorseGrade(a: Grade, b: Grade): boolean {
+  return GRADES.indexOf(a) > GRADES.indexOf(b);
+}
 
 export const QUEUES = {
   scanRequests: 'scan_requests',

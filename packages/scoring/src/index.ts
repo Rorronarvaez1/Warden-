@@ -13,6 +13,7 @@
 
 import {
   CONFIDENCES,
+  gradeFor,
   SEVERITIES,
   type Confidence,
   type FindingStatus,
@@ -20,6 +21,9 @@ import {
   type RiskDomainKey,
   type Severity,
 } from '@warden/shared';
+
+// Los umbrales viven en @warden/shared porque la web también los dibuja (tendencia del KRI).
+export { gradeFor };
 
 export interface ScoringFinding {
   riskDomain: RiskDomainKey;
@@ -61,12 +65,6 @@ export interface ScoreResult {
 export const SATURATION = 60;
 /** Techo de un dominio con un hallazgo crítico abierto: la mejor nota posible es D. */
 export const CRITICAL_CAP = 69;
-
-const GRADE_THRESHOLDS: readonly [Grade, number][] = [['A', 90], ['B', 80], ['C', 70], ['D', 60], ['E', 50]];
-
-export function gradeFor(score: number): Grade {
-  return GRADE_THRESHOLDS.find(([, min]) => score >= min)?.[0] ?? 'F';
-}
 
 /** numeric(5, 2) en BD. */
 const round2 = (value: number) => Math.round(value * 100) / 100;

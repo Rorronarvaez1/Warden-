@@ -4,6 +4,7 @@
 // El KRI y las notas son null hasta que el worker guarde el primer puntaje en `scores`
 // (modelo en docs/scoring-model.md).
 
+import type { ReportAlert } from './reports';
 import type { AssetType, Confidence, Grade, RiskDomainKey, ScanSourceStatus, ScanStatus, Severity } from '@warden/shared';
 
 export interface CompanyOverview {
@@ -57,6 +58,8 @@ export interface FindingRow {
 export interface TrendPoint {
   scannedAt: string;
   score: number;
+  /** Nota guardada con el puntaje (scores.grade). */
+  grade: Grade;
 }
 
 export interface ScanSummary {
@@ -182,6 +185,8 @@ export interface DashboardData {
   /** Fuentes con colector implementado, para habilitarlas y ver su último resultado. */
   sources: SourceStatus[];
   lastScan: ScanSummary | null;
+  /** Alerta disparada por el último escaneo calificado; null si no hubo. */
+  latestAlert: (ReportAlert & { scoreId: string }) | null;
 }
 
 export const DOMAIN_LABELS: Record<RiskDomainKey, string> = {
