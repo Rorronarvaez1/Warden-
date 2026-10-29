@@ -13,8 +13,10 @@ import { ScoreGauge } from '@/components/dashboard/score-gauge';
 import { SourcesCard } from '@/components/dashboard/sources-card';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { TrendChart } from '@/components/dashboard/trend-chart';
+import { InfoTip } from '@/components/info-tip';
 import { alertText } from '@/components/reports/alert-text';
 import { loadDashboard } from '@/lib/dashboard-data';
+import { SCORING_HELP } from '@/lib/dashboard-types';
 
 // Lee Supabase en cada request: los escaneos del worker cambian los datos.
 export const dynamic = 'force-dynamic';
@@ -58,7 +60,7 @@ export default async function DashboardPage() {
 
       <div className={styles.statsGrid}>
         <StatCard
-          label="KRI"
+          label={<InfoTip tip={SCORING_HELP.kri}>KRI</InfoTip>}
           value={company.score === null ? '—' : company.score.toFixed(1)}
           hint={
             company.score === null
@@ -84,13 +86,14 @@ export default async function DashboardPage() {
 
       <ExposurePanel exposure={exposure} isAdmin={isAdmin && live} />
 
-      {/* Reputación junto a Fuentes: su tabla crece con los activos y llena la altura de la columna. */}
+      {/* Reputación y Correo apilados a la izquierda: juntos igualan la altura de Fuentes. */}
       <div className={styles.rowWide}>
-        <ReputationPanel reputation={reputation} isAdmin={isAdmin && live} />
+        <div className={styles.columnStack}>
+          <ReputationPanel reputation={reputation} isAdmin={isAdmin && live} />
+          <EmailPanel email={email} isAdmin={isAdmin && live} />
+        </div>
         <SourcesCard sources={sources} isAdmin={isAdmin && live} />
       </div>
-
-      <EmailPanel email={email} isAdmin={isAdmin && live} />
 
       <div className={styles.rowHalf}>
         <DomainBreakdown domains={domains} />

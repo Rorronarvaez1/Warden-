@@ -37,6 +37,18 @@
   gap: 16px;
 }
 
+/* Varias tarjetas en una columna de rowWide; la última se estira para igualar la otra columna. */
+.columnStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.columnStack > :last-child {
+  flex: 1;
+}
+
 @media (max-width: 1100px) {
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
