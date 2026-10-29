@@ -44,8 +44,8 @@ node --version; docker --version; supabase --version
 ### 2. Clonar e instalar dependencias
 
 ```powershell
-git clone https://github.com/Rorronarvaez1/Warden-.git
-cd Warden-
+git clone https://github.com/Warden-OSINT/Warden.git
+cd Warden
 ```
 
 Warden usa **pnpm** (gestor de paquetes con soporte de monorepos), no npm. `corepack`, que viene con Node, instala la versión fijada en `package.json`. Este comando deja `pnpm` en el PATH sin permisos de administrador:
