@@ -187,6 +187,16 @@ export async function cancelScan(scanId: string): Promise<ActionResult> {
   return {};
 }
 
+/** Pide (o vuelve a pedir) el resumen con IA de un reporte; lo genera el worker. */
+export async function requestReport(scoreId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('request_report', { p_score_id: scoreId });
+  if (error) return { error: permissionMessage(error) };
+
+  revalidatePath(`/reports/${scoreId}`);
+  return {};
+}
+
 const TRIAGE_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
 type TriageStatus = (typeof TRIAGE_STATUSES)[number];
 

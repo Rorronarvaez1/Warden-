@@ -55,12 +55,12 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
 | Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
-| Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
+| Resúmenes con IA | ✅ Tras calificar, el worker encola `report_requests` (`request_report`) y genera el resumen con `@warden/ai` (`pipeline/report.ts`): contexto con nota, dominios y títulos de los hallazgos más severos, pasado por `redact()`. Se guarda en `reports` como `draft` (borrador sin revisión humana). Requiere `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
 | Página Escaneos (`/scans`) | ✅ Historial con estado, KRI y resultado por fuente (`lib/scan-history.ts`) |
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
-| Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen con IA reservado (pendiente) |
+| Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
 | Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
 | Alertas | 🟡 El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`), canal `in_app`. Envío por correo/webhook pendiente |
 | Outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
@@ -204,7 +204,7 @@ Reglas:
                                   │  1. collect  (no-contact)    │      └─────────────┘
                                   │  2. persist  (upsert)        │      ┌─────────────┐
                                   │  3. score    (KRI)           │ ───▶ │ SpiderFoot  │
-                                  │  4. alerts + report IA (TODO)│      └─────────────┘
+                                  │  4. alerts + report IA       │      └─────────────┘
                                   └──────────────────────────────┘ ───▶ OpenRouter (redactado)
 ```
 
@@ -219,7 +219,7 @@ Reglas:
    - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
    - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
    - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo.
-   - **report (IA):** pendiente (TODO en `run-scan.ts`).
+   - **report (IA):** `rpc('request_report')` encola `{ score_id }` en `report_requests`. El worker atiende esa cola cuando no hay escaneos (`pipeline/report.ts`) y guarda el resultado en `reports` (`pending` → `draft` o `failed` con `error_message`). Un fallo de la IA nunca tumba el escaneo; la web permite regenerar.
    - Marca `completed` o `failed`.
    - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
 4. Tras procesar, `queue_delete`. Si el worker muere (o se apaga), el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
@@ -325,7 +325,6 @@ Crear `packages/ai/src/prompts/<nombre>.v(N+1).ts` y cambiar el import. No modif
 - Solo funciones puras en `packages/scoring` (sin BD ni red) para poder recalcular históricos.
 - Entrada: `ScoringFinding[]` + `WeightItem[]` + dominios con datos; salida: `ScoreResult | null`.
 - Cambiar puntos o pesos = **nueva versión** en `scoring_weights` (no editar una usada por escaneos). Cambiar la fórmula exige actualizar [docs/scoring-model.md](docs/scoring-model.md).
-- Pendiente: encolar en `report_requests` después de guardar el score.
 
 ---
 
