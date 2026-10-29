@@ -5,7 +5,8 @@ import { mapLeaks, type GitleaksLeak } from './mapper';
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
 const leak = (over: Partial<GitleaksLeak>): GitleaksLeak => ({
   RuleID: 'aws-access-token', Description: 'AWS Access Key', File: 'config/.env', StartLine: 3,
-  Commit: 'abc123', Date: '2026-05-01T00:00:00Z', Secret: 'AKIAEXAMPLEEXAMPLE00', ...over,
+  // Valor repetitivo (entropía baja): con uno que parezca llave, gitleaks reportaría este test.
+  Commit: 'abc123', Date: '2026-05-01T00:00:00Z', Secret: 'NO-GUARDAR-NO-GUARDAR', ...over,
 });
 
 describe('mapLeaks', () => {
@@ -28,7 +29,7 @@ describe('mapLeaks', () => {
       assetValue: 'github.com/acme',
       evidence: { file: 'old/.env', commit: 'def456', url: 'https://github.com/Acme/api/blob/def456/old/.env#L3' },
     });
-    expect(JSON.stringify(findings)).not.toContain('AKIAEXAMPLE');
+    expect(JSON.stringify(findings)).not.toContain('NO-GUARDAR');
   });
 
   it('mantiene la huella si el secreto reaparece en otro commit', () => {

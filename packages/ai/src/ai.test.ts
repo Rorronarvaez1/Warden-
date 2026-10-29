@@ -14,7 +14,10 @@ describe('parseModelJson', () => {
 
 describe('redact', () => {
   it('quita correos, llaves y tokens antes de enviar el contexto', () => {
-    const text = redact('admin@empresa.com AKIAABCDEFGHIJKLMNOP eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl');
+    // Armada al ejecutar: escrita completa, gitleaks la reporta como llave de AWS real
+    // cuando escanea este repositorio (es público y Warden se evalúa con él en demos).
+    const fakeAwsKey = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('');
+    const text = redact(`admin@empresa.com ${fakeAwsKey} eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl`);
     expect(text).toBe('[email] [aws-key] [jwt]');
   });
 });
