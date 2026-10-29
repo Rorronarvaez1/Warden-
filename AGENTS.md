@@ -65,7 +65,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Alertas | 🟡 El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`), canal `in_app`. Envío por correo/webhook pendiente |
 | Outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
-**El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`.
+**El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`. Qué está hecho y qué falta del KRI (IA, envío de alertas, HIBP…): [docs/kri-plan.md](docs/kri-plan.md).
 
 ---
 

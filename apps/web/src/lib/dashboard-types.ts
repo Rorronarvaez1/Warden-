@@ -200,3 +200,22 @@ export const DOMAIN_LABELS: Record<RiskDomainKey, string> = {
   reputation: 'Reputación',
   impersonation: 'Suplantación',
 };
+
+// Explicaciones para personas sin formación en ciberseguridad (ayudas emergentes).
+export const DOMAIN_DESCRIPTIONS: Record<RiskDomainKey, string> = {
+  exposure: 'Servicios de la empresa visibles desde Internet (puertos abiertos) y vulnerabilidades conocidas en ellos. Cuantos menos y más actualizados, mejor.',
+  email: 'Si el dominio publica SPF y DMARC, las reglas que impiden que otros envíen correos haciéndose pasar por la empresa.',
+  certs: 'Certificados que protegen las conexiones (el candado del navegador): vencimientos, comodines y qué autoridades pueden emitirlos.',
+  secrets: 'Contraseñas, llaves o tokens publicados por error en repositorios de código públicos de la empresa.',
+  reputation: 'Si dominios o IPs de la empresa aparecen en listas de sitios con malware, phishing o botnets.',
+  impersonation: 'Dominios con nombres parecidos al de la empresa registrados por terceros, que podrían usarse para engañar a clientes o empleados.',
+};
+
+export const SCORING_HELP = {
+  kri: 'KRI (indicador clave de riesgo): calificación de 0 a 100 de la seguridad visible desde Internet. Más alto es mejor. A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, E ≥ 50 y F por debajo.',
+  weight: 'Cuánto aporta este dominio al KRI global. Los pesos de una versión suman 100.',
+  severityPoints: 'Cuánto resta del puntaje del dominio cada hallazgo abierto, según su severidad. Ejemplo: con Alta = 20, un solo hallazgo alto deja el dominio en ~72 de 100.',
+  severityOrder: 'En orden: Crítica · Alta · Media · Baja · Info.',
+  confidenceFactors: 'Qué tan seguro está Warden de cada hallazgo. Multiplica los puntos: 1 = cuenta completo, 0.5 = cuenta la mitad.',
+  confidenceOrder: 'En orden: confianza Alta · Media · Baja.',
+} as const;

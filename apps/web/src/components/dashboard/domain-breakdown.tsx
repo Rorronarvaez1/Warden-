@@ -1,4 +1,5 @@
-import type { DomainScoreRow } from '@/lib/dashboard-types';
+import { InfoTip } from '@/components/info-tip';
+import { DOMAIN_DESCRIPTIONS, type DomainScoreRow } from '@/lib/dashboard-types';
 import styles from './dashboard.module.css';
 import { GRADE_COLORS, GradeBadge } from './grade-badge';
 
@@ -9,7 +10,11 @@ export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
     <section className={styles.card}>
       <header className={styles.cardHeader}>
         <div>
-          <h2 className={styles.cardTitle}>Riesgo por dominio</h2>
+          <h2 className={styles.cardTitle}>
+            <InfoTip tip="Cada dominio es un área de riesgo con su propia nota. El porcentaje junto al nombre es su peso: cuánto aporta al KRI global (los pesos suman 100). Pasa el mouse sobre cada nombre para ver qué revisa.">
+              Riesgo por dominio
+            </InfoTip>
+          </h2>
           <p className={styles.cardHint}>
             {!scored
               ? 'Hallazgos abiertos · las notas aparecen al completarse un escaneo'
@@ -25,7 +30,8 @@ export function DomainBreakdown({ domains }: { domains: DomainScoreRow[] }) {
           <li key={d.key}>
             <div className={styles.domainTop}>
               <span>
-                {d.name} {d.weight !== null && <span className={styles.domainMeta}>· {d.weight}%</span>}
+                <InfoTip tip={DOMAIN_DESCRIPTIONS[d.key]}>{d.name}</InfoTip>{' '}
+                {d.weight !== null && <span className={styles.domainMeta}>· {d.weight}%</span>}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className={styles.domainMeta}>{d.findingsCount} hallazgos</span>
