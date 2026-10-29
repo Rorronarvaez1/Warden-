@@ -12,7 +12,7 @@
 | 1 — Hallazgos de `certs` | ✅ Hecha | #29 |
 | 2 — Colectores `typosquat` y `gitleaks` | ✅ Hecha | #29 |
 | 3 — Motor de scoring | ✅ Hecha | #30 |
-| 4 — Después del score | 🟡 Hecha sin IA; faltan IA y envío de alertas | #31 |
+| 4 — Después del score | 🟡 Hecha; falta el envío de alertas | #31, IA en `feat/resumen-ia` |
 | Extra — Progreso y cancelación de escaneos | ✅ Hecha | #32 |
 | Extra — Dashboard y ayudas emergentes | ✅ Hecha | este PR |
 
@@ -63,9 +63,10 @@ Hecho (sin IA):
 
 Pendiente:
 
-- [ ] Encolar `report_requests` tras guardar el score y conectar `@warden/ai` (resumen
-      redactado con `redact()`, guardado en `reports` con `model_used`, `prompt_version` y
-      `context_hash`).
+- [x] **Resumen ejecutivo con IA**: tras calificar se encola `report_requests`; el worker
+      genera el resumen con `@warden/ai` (contexto redactado con `redact()`) y lo guarda en
+      `reports` con `model_used`, `prompt_version` y `context_hash`. El reporte muestra el
+      estado, los riesgos y las recomendaciones, con botón Regenerar.
 - [ ] Envío real de alertas (correo/webhook) vía `integration_outbox`; los destinatarios ya se
       guardan en `alert_settings`.
 - [ ] PDF generado en el servidor (hoy: imprimir / guardar como PDF desde el navegador).

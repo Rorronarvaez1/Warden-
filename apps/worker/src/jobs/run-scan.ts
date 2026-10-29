@@ -74,8 +74,10 @@ export async function runScan(
     if (score) {
       // Un reintento borra el puntaje anterior y con él sus alertas (on delete cascade).
       await raiseScoreAlert(db, { id: score.scoreId, companyId: scan.company_id, grade: score.grade });
+      // El resumen con IA se genera aparte (cola report_requests): no retrasa ni tumba el escaneo.
+      const { error: reportError } = await db.rpc('request_report', { p_score_id: score.scoreId });
+      if (reportError) console.warn(`[run-scan] ${scanId} no se pudo pedir el resumen`, reportError.message);
     }
-    // TODO: encolar report_requests para el resumen con IA (fase 4 del KRI).
 
     await db
       .from('scans')

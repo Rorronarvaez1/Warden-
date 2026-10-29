@@ -464,34 +464,43 @@ export type Database = {
       }
       reports: {
         Row: {
+          content: Json | null
           context_hash: string | null
+          error_message: string | null
           generated_at: string
           id: string
           model_used: string | null
           pdf_path: string | null
           prompt_version: string | null
+          requested_at: string
           score_id: string
           status: string
           summary_text: string | null
         }
         Insert: {
+          content?: Json | null
           context_hash?: string | null
+          error_message?: string | null
           generated_at?: string
           id?: string
           model_used?: string | null
           pdf_path?: string | null
           prompt_version?: string | null
+          requested_at?: string
           score_id: string
           status?: string
           summary_text?: string | null
         }
         Update: {
+          content?: Json | null
           context_hash?: string | null
+          error_message?: string | null
           generated_at?: string
           id?: string
           model_used?: string | null
           pdf_path?: string | null
           prompt_version?: string | null
+          requested_at?: string
           score_id?: string
           status?: string
           summary_text?: string | null
@@ -965,6 +974,7 @@ export type Database = {
           read_ct: number
         }[]
       }
+      request_report: { Args: { p_score_id: string }; Returns: undefined }
       request_scan: { Args: { p_company_id: string }; Returns: string }
     }
     Enums: {

@@ -39,6 +39,33 @@
   font-size: 13px;
 }
 
+.aiBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aiText {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.aiHeading {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.aiList {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
 .alertList {
   margin: 0;
   padding-left: 18px;

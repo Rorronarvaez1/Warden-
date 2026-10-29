@@ -55,6 +55,10 @@ export function isWorseGrade(a: Grade, b: Grade): boolean {
   return GRADES.indexOf(a) > GRADES.indexOf(b);
 }
 
+// pending: solicitado; draft: generado por la IA sin revisión humana; failed: no se pudo generar.
+export const REPORT_STATUSES = ['pending', 'draft', 'validated', 'published', 'failed'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
 export const QUEUES = {
   scanRequests: 'scan_requests',
   reportRequests: 'report_requests',
@@ -62,4 +66,8 @@ export const QUEUES = {
 
 export interface ScanRequestMessage {
   scan_id: string;
+}
+
+export interface ReportRequestMessage {
+  score_id: string;
 }

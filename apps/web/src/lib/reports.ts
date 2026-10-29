@@ -4,16 +4,19 @@
 import {
   ALERT_TYPES,
   CONFIDENCES,
+  REPORT_STATUSES,
   RISK_DOMAIN_KEYS,
   SCAN_SOURCE_STATUSES,
   SEVERITIES,
   type AlertType,
   type Confidence,
+  type ReportStatus,
   type Grade,
   type RiskDomainKey,
   type ScanSourceStatus,
   type Severity,
 } from '@warden/shared';
+import type { Json } from '@warden/db';
 import { asGrade, loadActiveCompany, oneOf } from './dashboard-data';
 import { createClient } from './supabase/server';
 
@@ -70,8 +73,19 @@ export interface ReportDetail extends ReportSummary {
   sources: { key: string; name: string; status: ScanSourceStatus }[];
   /** Estado actual (de más a menos severo): el historial de triage por escaneo no se guarda. */
   openFindings: { total: number; bySeverity: Record<Severity, number>; items: ReportFinding[] };
-  /** Resumen con IA (tabla reports); null mientras no se genere. */
+  /** Resumen con IA (tabla reports); null si nunca se pidió. */
+  ai: ReportAi | null;
+}
+
+export interface ReportAi {
+  status: ReportStatus;
   summary: string | null;
+  keyRisks: string[];
+  recommendations: string[];
+  model: string | null;
+  promptVersion: string | null;
+  generatedAt: string | null;
+  error: string | null;
 }
 
 export type ReportsState =
@@ -147,7 +161,7 @@ export async function loadReport(scoreId: string): Promise<ReportDetailState> {
   const { data: score, error } = await supabase
     .from('scores')
     .select(
-      'id, scan_id, global_score, grade, computed_at, excluded_domains, weight_version_id, scans!inner(created_at, trigger_type), alerts(alert_type, previous_grade, new_grade), score_domains(domain_score, grade, findings_count, risk_domains!inner(key)), reports(summary_text)',
+      'id, scan_id, global_score, grade, computed_at, excluded_domains, weight_version_id, scans!inner(created_at, trigger_type), alerts(alert_type, previous_grade, new_grade), score_domains(domain_score, grade, findings_count, risk_domains!inner(key)), reports(status, summary_text, content, model_used, prompt_version, generated_at, error_message)',
     )
     .eq('company_id', company.id)
     .eq('id', scoreId)
@@ -238,7 +252,35 @@ export async function loadReport(scoreId: string): Promise<ReportDetailState> {
           (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || a.title.localeCompare(b.title),
         ),
       },
-      summary: score.reports?.summary_text ?? null,
+      ai: toReportAi(score.reports),
     },
+  };
+}
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+
+function toReportAi(row: {
+  status: string;
+  summary_text: string | null;
+  content: Json | null;
+  model_used: string | null;
+  prompt_version: string | null;
+  generated_at: string;
+  error_message: string | null;
+} | null): ReportAi | null {
+  if (!row) return null;
+  const content = row.content && typeof row.content === 'object' && !Array.isArray(row.content) ? row.content : {};
+  const status = oneOf(REPORT_STATUSES, row.status, 'failed');
+  return {
+    status,
+    summary: row.summary_text,
+    keyRisks: strings(content.key_risks),
+    recommendations: strings(content.recommendations),
+    model: row.model_used,
+    promptVersion: row.prompt_version,
+    // generated_at tiene default now() al crear la fila: solo cuenta si ya se generó.
+    generatedAt: status === 'pending' || status === 'failed' ? null : row.generated_at,
+    error: row.error_message,
   };
 }

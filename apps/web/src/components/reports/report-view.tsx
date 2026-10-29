@@ -5,6 +5,7 @@ import { SOURCE_RUN_COLORS, SOURCE_RUN_LABELS } from '@/components/dashboard/sca
 import { ScoreGauge } from '@/components/dashboard/score-gauge';
 import { DOMAIN_LABELS } from '@/lib/dashboard-types';
 import type { ReportDetail } from '@/lib/reports';
+import { AiSummary } from './ai-summary';
 import { alertText } from './alert-text';
 import { DomainExplorer } from './domain-explorer';
 import { PrintButton } from './print-button';
@@ -69,21 +70,7 @@ export function ReportView({ report }: { report: ReportDetail }) {
         </span>
       </section>
 
-      <section className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.cardTitle}>Resumen ejecutivo</h2>
-            <p className={styles.cardHint}>Generado con IA a partir de datos redactados</p>
-          </div>
-        </header>
-        {report.summary ? (
-          <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{report.summary}</p>
-        ) : (
-          <p className={own.aiPlaceholder}>
-            Pendiente: el resumen con IA todavía no está conectado. Este reporte muestra los datos calculados del KRI.
-          </p>
-        )}
-      </section>
+      <AiSummary scoreId={report.id} ai={report.ai} />
 
       <DomainExplorer domains={report.domains} findings={report.openFindings.items} />
     </div>

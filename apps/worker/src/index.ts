@@ -1,10 +1,13 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import { QUEUES, type ScanRequestMessage } from '@warden/shared';
+import { QUEUES, type ReportRequestMessage, type ScanRequestMessage } from '@warden/shared';
 import { config } from './config';
 import { runScan } from './jobs/run-scan';
+import { generateReport } from './pipeline/report';
 import { db } from './supabase';
 
 const IDLE_DELAY_MS = 5_000;
+/** Un resumen tarda segundos; si el worker muere, el pedido reaparece pronto. */
+const REPORT_VISIBILITY_TIMEOUT = 180;
 const shutdown = new AbortController();
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
@@ -33,11 +36,30 @@ async function pollScanRequests(): Promise<boolean> {
   return messages.length > 0;
 }
 
-console.log('[worker] escuchando la cola', QUEUES.scanRequests);
+async function pollReportRequests(): Promise<boolean> {
+  const { data, error } = await db.rpc('queue_read', {
+    p_queue: QUEUES.reportRequests,
+    p_visibility_timeout: REPORT_VISIBILITY_TIMEOUT,
+    p_quantity: 1,
+  });
+  if (error) throw error;
+
+  const messages = data ?? [];
+  for (const msg of messages) {
+    // Lo encola request_report(); generateReport registra los fallos en reports.status.
+    const { score_id } = msg.message as unknown as ReportRequestMessage;
+    await generateReport(db, score_id, shutdown.signal);
+    await db.rpc('queue_delete', { p_queue: QUEUES.reportRequests, p_msg_id: msg.msg_id });
+  }
+  return messages.length > 0;
+}
+
+console.log('[worker] escuchando las colas', QUEUES.scanRequests, 'y', QUEUES.reportRequests);
 
 while (!shutdown.signal.aborted) {
   try {
-    const didWork = await pollScanRequests();
+    // Los escaneos tienen prioridad; los resúmenes se generan cuando no hay escaneos en cola.
+    const didWork = (await pollScanRequests()) || (await pollReportRequests());
     if (!didWork) await sleep(IDLE_DELAY_MS, undefined, { signal: shutdown.signal });
   } catch (err) {
     if (shutdown.signal.aborted) break;
